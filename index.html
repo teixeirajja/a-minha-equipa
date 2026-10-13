@@ -1,0 +1,230 @@
+<!doctype html>
+<html lang="pt-PT">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width,initial-scale=1">
+  <title>A Minha Equipa</title>
+  <link rel="stylesheet" href="styles.css">
+</head>
+<body>
+<div id="toast" class="toast hidden"></div>
+
+<section id="loginView" class="login-shell">
+  <form id="loginForm" class="login-card">
+    <div class="logo">AE</div>
+    <h1>A Minha Equipa</h1>
+    <p>Gestão de disponibilidade, pessoal e eventos.</p>
+    <label>Email<input id="loginEmail" type="email" required autocomplete="email"></label>
+    <label>Password<input id="loginPassword" type="password" required autocomplete="current-password"></label>
+    <button class="primary">Entrar</button>
+    <div id="loginError" class="error"></div>
+  </form>
+</section>
+
+<div id="appView" class="app hidden">
+  <aside>
+    <div class="brand"><div class="logo small">AE</div><div><b>A Minha Equipa</b><small>Gestão interna</small></div></div>
+    <nav>
+      <button data-page="inicio" class="active">Resumo</button>
+      <button data-page="consulta">Consultar disponibilidade</button>
+      <button data-page="eventos">Eventos</button>
+      <button data-page="pessoas">Equipa</button>
+      <button data-page="constrangimentos">Constrangimentos</button>
+      <button data-page="horarios">Horários</button>
+      <button data-page="historico">Histórico</button>
+    </nav>
+    <div class="aside-bottom"><span id="sessionEmail"></span><button id="logoutBtn" class="text-btn">Terminar sessão</button></div>
+  </aside>
+
+  <main>
+    <header>
+      <div><h2 id="pageTitle">Resumo</h2><p id="pageSubtitle">Visão geral da equipa.</p></div>
+      <button id="refreshBtn" class="secondary">Atualizar</button>
+    </header>
+
+    <section id="inicio" class="page active">
+      <div class="stats">
+        <article><span>Pessoas</span><strong id="sPeople">—</strong></article>
+        <article><span>5.º ano</span><strong id="sYear5">—</strong></article>
+        <article><span>6.º ano</span><strong id="sYear6">—</strong></article>
+        <article><span>Eventos futuros</span><strong id="sEvents">—</strong></article>
+      </div>
+
+      <div class="dashboard-grid">
+        <div class="panel">
+          <div class="panel-head">
+            <div><h3>Pessoas por curso</h3><p>Exército e GNR contam separadamente.</p></div>
+          </div>
+          <div id="courseStats" class="metric-list"></div>
+        </div>
+
+        <div class="panel">
+          <div class="panel-head">
+            <div><h3>Distribuição</h3><p>Indicadores rápidos da equipa.</p></div>
+          </div>
+          <div class="mini-stats">
+            <article><span>Engenheiros · 5.º</span><strong id="sEng5">—</strong></article>
+            <article><span>Engenheiros · 6.º</span><strong id="sEng6">—</strong></article>
+            <article><span>MED · 5.º</span><strong id="sMed5">—</strong></article>
+            <article><span>Raparigas</span><strong id="sFemale">—</strong></article>
+            <article><span>Rapazes</span><strong id="sMale">—</strong></article>
+            <article><span>Sexo por preencher</span><strong id="sSexUnknown">—</strong></article>
+          </div>
+        </div>
+      </div>
+
+      <div class="panel dashboard-events">
+        <div class="panel-head">
+          <div><h3>Próximos eventos</h3><p>Consulta rápida dos próximos compromissos.</p></div>
+        </div>
+        <div class="table-wrap">
+          <table>
+            <thead><tr><th>Data</th><th>Hora</th><th>Evento</th><th>Empenhados</th></tr></thead>
+            <tbody id="homeEvents"></tbody>
+          </table>
+        </div>
+      </div>
+    </section>
+
+    <section id="consulta" class="page">
+      <div class="panel">
+        <div class="panel-head"><div><h3>Disponibilidade por data</h3><p>Escolhe um dia. A hora é opcional.</p></div></div>
+        <div class="filters">
+          <label>Data<input id="availDate" type="date"></label>
+          <label>Hora opcional<input id="availTime" type="time"></label>
+          <label>Estado<select id="availFilter"><option value="all">Todos</option><option value="DISPONIVEL">Disponíveis</option><option value="INDISPONIVEL">Indisponíveis</option><option value="alerta">Com alerta de aula</option></select></label>
+          <button id="checkAvailBtn" class="primary">Consultar</button><button id="resetAvailFiltersBtn" type="button" class="secondary">Limpar filtros</button>
+        </div>
+        <div id="availSummary" class="summary"></div>
+        <div class="table-wrap">
+          <table id="availTable">
+  <thead>
+    <tr>
+      <th><button class="sort-head" data-sort="numero_corpo">Nº <span>↕</span></button></th>
+      <th><button class="sort-head" data-sort="nome">Nome <span>↕</span></button></th>
+      <th><button class="sort-head" data-sort="ano">Ano <span>↕</span></button></th>
+      <th><button class="sort-head" data-sort="curso">Curso <span>↕</span></button></th>
+      <th><button class="sort-head" data-sort="estado">Estado <span>↕</span></button></th>
+      <th><button class="sort-head" data-sort="motivo">Motivo <span>↕</span></button></th>
+      <th><button class="sort-head" data-sort="detalhe_aula">Aulas <span>↕</span></button></th>
+    </tr>
+    <tr class="column-filters">
+      <th><input data-colfilter="numero_corpo" placeholder="Filtrar"></th>
+      <th><input data-colfilter="nome" placeholder="Filtrar"></th>
+      <th><input data-colfilter="ano" placeholder="Filtrar"></th>
+      <th><input data-colfilter="curso" placeholder="Filtrar"></th>
+      <th>
+        <select data-colfilter="estado">
+          <option value="">Todos</option>
+          <option value="DISPONIVEL">Disponível</option>
+          <option value="INDISPONIVEL">Indisponível</option>
+        </select>
+      </th>
+      <th><input data-colfilter="motivo" placeholder="Filtrar"></th>
+      <th>
+        <select data-colfilter="alerta">
+          <option value="">Todos</option>
+          <option value="sim">Com aula</option>
+          <option value="nao">Sem aula</option>
+        </select>
+      </th>
+    </tr>
+  </thead>
+  <tbody id="availBody"></tbody>
+</table>
+        </div>
+      </div>
+    </section>
+
+    <section id="eventos" class="page">
+      <div class="panel">
+        <div class="panel-head"><div><h3>Eventos</h3><p>Cria eventos, empenha pessoal e exporta a lista de participantes.</p></div><button id="newEventBtn" class="primary">+ Novo evento</button></div>
+        <div class="table-wrap">
+          <table><thead><tr><th>Data</th><th>Hora</th><th>Evento</th><th>Estado</th><th>Empenhados</th><th></th></tr></thead><tbody id="eventsBody"></tbody></table>
+        </div>
+      </div>
+    </section>
+
+    <section id="pessoas" class="page">
+      <div class="panel">
+        <div class="panel-head"><div><h3>Equipa</h3><p>Clica numa pessoa para abrir a ficha individual.</p></div><button id="newPersonBtn" class="primary">+ Pessoa</button></div>
+        <div class="toolbar"><input id="personSearch" placeholder="Pesquisar nome, nº, curso..."></div>
+        <div class="table-wrap"><table><thead><tr><th>Nº</th><th>Nome</th><th>Posto</th><th>Ano</th><th>Ramo</th><th>Curso</th><th>Idade</th><th>Localidade</th><th></th></tr></thead><tbody id="peopleBody"></tbody></table></div>
+      </div>
+    </section>
+
+    <section id="constrangimentos" class="page">
+      <div class="panel">
+        <div class="panel-head"><div><h3>Constrangimentos</h3><p>ERASMUS e outros registos individuais.</p></div><button id="newConstraintBtn" class="primary">+ Constrangimento</button></div>
+        <div class="table-wrap"><table><thead><tr><th>Pessoa</th><th>Tipo</th><th>Início</th><th>Fim</th><th>Observação</th><th></th></tr></thead><tbody id="constraintsBody"></tbody></table></div>
+      </div>
+    </section>
+
+    <section id="horarios" class="page">
+      <div class="panel">
+        <div class="panel-head"><div><h3>Horários</h3><p>Blocos semanais associados às pessoas.</p></div><button id="newScheduleBtn" class="primary">+ Horário</button></div>
+        <div id="scheduleList" class="cards"></div>
+      </div>
+    </section>
+
+    <section id="historico" class="page">
+      <div class="panel">
+        <div class="panel-head"><div><h3>Histórico</h3><p>Últimas alterações.</p></div></div>
+        <div class="table-wrap"><table><thead><tr><th>Data</th><th>Tabela</th><th>Ação</th><th>Registo</th></tr></thead><tbody id="historyBody"></tbody></table></div>
+      </div>
+    </section>
+  </main>
+</div>
+
+<dialog id="modal">
+  <form id="modalForm">
+    <div class="modal-head"><h3 id="modalTitle"></h3><button id="modalClose" type="button" class="icon">×</button></div>
+    <div id="modalBody" class="modal-body"></div>
+    <div class="modal-actions"><button id="modalCancel" type="button" class="secondary">Cancelar</button><button class="primary">Guardar</button></div>
+  </form>
+</dialog>
+
+<dialog id="eventWizard">
+  <div class="modal-head"><h3 id="wizardTitle">Novo evento</h3><button id="wizardClose" class="icon">×</button></div>
+  <div class="wizard">
+    <div class="wizard-fields">
+      <label>Nome<input id="weName"></label>
+      <div class="grid2">
+        <label>Data<input id="weDate" type="date"></label>
+        <label>Hora início<input id="weStart" type="time"></label>
+        <label>Hora fim<input id="weEnd" type="time"></label>
+        <label>Filtrar candidatos<select id="weScope"><option value="all">Toda a equipa</option><option value="course">Curso</option><option value="year">Ano</option></select></label>
+      </div>
+      <div id="scopeValueBox" class="hidden"><label id="scopeValueLabel">Valor<select id="weScopeValue"></select></label></div>
+      <label>Estado
+        <select id="weStatus">
+          <option value="">Automático</option>
+          <option value="AGENDADO">Agendado</option>
+          <option value="EM_CURSO">Em curso</option>
+          <option value="FINALIZADO">Finalizado</option>
+          <option value="CANCELADO">Cancelado</option>
+        </select>
+      </label>
+      <label>Observação<textarea id="weNote"></textarea></label>
+      <button id="weCheck" type="button" class="secondary">Ver disponibilidade</button>
+    </div>
+    <div class="wizard-people">
+      <div class="wizard-top"><b>Pessoas</b><span id="weCount"></span></div>
+      <div id="wePeople" class="people-pick"><p class="muted">Define data e hora e carrega em “Ver disponibilidade”.</p></div>
+    </div>
+  </div>
+  <div class="modal-actions"><button id="wizardCancel" class="secondary">Cancelar</button><button id="wizardSave" class="primary">Guardar evento e empenhar</button></div>
+</dialog>
+
+
+<dialog id="profileModal" class="profile-dialog">
+  <div class="modal-head">
+    <h3>Ficha individual</h3>
+    <button id="profileClose" type="button" class="icon">×</button>
+  </div>
+  <div id="profileBody" class="profile-body"></div>
+</dialog>
+
+<script type="module" src="app.js"></script>
+</body>
+</html>

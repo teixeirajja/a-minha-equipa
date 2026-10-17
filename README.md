@@ -989,3 +989,43 @@ Os feriados:
 As datas móveis são calculadas automaticamente para qualquer ano.
 
 Não requer SQL novo.
+
+
+## V6.10 — Gestão global de avaliações, filtros e conflitos
+
+### Gerir uma avaliação como um todo
+
+Na Agenda, clicar num cartão de avaliação ou numa linha da vista Lista abre a avaliação completa.
+
+É possível:
+- alterar cadeira;
+- alterar tipo;
+- alterar data;
+- alterar observação;
+- adicionar pessoas;
+- remover pessoas;
+- selecionar rapidamente Toda a turma / TM_1 / TM_2 / TM_3 / TM_4;
+- eliminar a avaliação para todas as pessoas associadas.
+
+A aplicação continua a guardar um registo por pessoa, mas a gestão é feita como se fosse uma única avaliação coletiva.
+
+### Filtros da Agenda
+
+Foram adicionados filtros por:
+- cadeira;
+- tipo;
+- pessoa;
+- horário TM_1 / TM_2 / TM_3 / TM_4.
+
+Os filtros funcionam tanto no Calendário como na vista Lista.
+Os feriados continuam visíveis como contexto.
+
+### Conflitos e sobrecarga
+
+O Resumo da Turma tem agora um painel de alertas que deteta automaticamente:
+- duas ou mais avaliações para a mesma pessoa no mesmo dia;
+- avaliações em dias consecutivos para a mesma pessoa.
+
+Os alertas são informativos e não bloqueiam a criação de avaliações.
+
+Não requer SQL novo.

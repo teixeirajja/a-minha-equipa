@@ -23,6 +23,7 @@ let currentScheduleViewerBlocks=[];
 let classScheduleIndex=0;
 let classAgendaMonth=new Date(new Date().getFullYear(),new Date().getMonth(),1);
 let classAgendaView='calendar';
+let classAgendaFilters={subject:'',type:'',person:'',group:''};
 
 let classSorts=[{key:'nome',dir:1}];
 let classFilters={numero_corpo:'',nome:'',posto:'',ano:'',ramo:'',nim:''};
@@ -338,31 +339,43 @@ function agendaTypeClass(tipo){
   return 'outro';
 }
 
+function evaluationGroupKey(ev){
+  return [
+    ev.data||'',
+    String(ev.cadeira||'').trim().toLowerCase(),
+    String(ev.tipo||'').trim().toLowerCase(),
+    String(ev.observacao||'').trim().toLowerCase()
+  ].join('|');
+}
+
 function aggregateAgendaEvaluations(rows){
   const grouped=new Map();
 
   rows.forEach(ev=>{
-    const key=[
-      ev.data||'',
-      String(ev.cadeira||'').trim().toLowerCase(),
-      String(ev.tipo||'').trim().toLowerCase(),
-      String(ev.observacao||'').trim().toLowerCase()
-    ].join('|');
+    const key=evaluationGroupKey(ev);
 
     if(!grouped.has(key)){
       grouped.set(key,{
+        key,
         data:ev.data,
         cadeira:ev.cadeira||'—',
         tipo:ev.tipo||'Outro',
         observacao:ev.observacao||'',
-        people:[]
+        people:[],
+        records:[]
       });
     }
 
     grouped.get(key).people.push(ev.pessoa);
+    grouped.get(key).records.push(ev);
   });
 
   return [...grouped.values()];
+}
+
+function findAgendaGroupByKey(key){
+  return aggregateAgendaEvaluations(classEvaluationRows())
+    .find(group=>group.key===key)||null;
 }
 
 function agendaShortName(name){
@@ -384,20 +397,29 @@ function classSubjectOptions(){
   );
 }
 
-function openAgendaEvaluationEditor(defaultDate=''){
+function openAgendaEvaluationEditor(defaultDate='',group=null){
+  const isEdit=Boolean(group);
   const people=[...tmPeople()].sort((a,b)=>{
     const an=Number(a.numero_corpo),bn=Number(b.numero_corpo);
     if(!Number.isNaN(an)&&!Number.isNaN(bn))return an-bn;
     return String(a.nome||'').localeCompare(String(b.nome||''),'pt');
   });
 
+  const selectedIds=new Set(
+    isEdit
+      ? group.people.map(p=>String(p.id))
+      : []
+  );
+
   const subjects=classSubjectOptions();
   const subjectOptions=subjects
     .map(s=>`<option value="${esc(s)}"></option>`)
     .join('');
 
+  const currentType=isEdit?String(group.tipo||'Teste'):'Teste';
+
   modal(
-    'Nova avaliação da turma',
+    isEdit?'Gerir avaliação':'Nova avaliação da turma',
     `<div class="agenda-create-form">
       <div class="grid2">
         <label class="full">Cadeira
@@ -405,26 +427,28 @@ function openAgendaEvaluationEditor(defaultDate=''){
             name="cadeira"
             list="agendaEvaluationSubjects"
             required
+            value="${esc(isEdit?group.cadeira:'')}"
             placeholder="Escolhe ou escreve a cadeira">
           <datalist id="agendaEvaluationSubjects">${subjectOptions}</datalist>
         </label>
 
         <label>Tipo
           <select name="tipo">
-            <option value="Teste">Teste</option>
-            <option value="Exame">Exame</option>
-            <option value="Trabalho">Trabalho</option>
-            <option value="Apresentação">Apresentação</option>
-            <option value="Outro">Outro</option>
+            ${['Teste','Exame','Trabalho','Apresentação','Outro']
+              .map(t=>`<option value="${t}" ${currentType===t?'selected':''}>${t}</option>`)
+              .join('')}
           </select>
         </label>
 
         <label>Data
-          <input name="data" type="date" required value="${esc(defaultDate||today())}">
+          <input name="data" type="date" required
+            value="${esc(isEdit?group.data:(defaultDate||today()))}">
         </label>
 
         <label class="full">Observação
-          <input name="observacao" placeholder="Opcional">
+          <input name="observacao"
+            value="${esc(isEdit?(group.observacao||''):'')}"
+            placeholder="Opcional">
         </label>
       </div>
 
@@ -459,7 +483,8 @@ function openAgendaEvaluationEditor(defaultDate=''){
           ${people.map(p=>`
             <label class="agenda-person-option"
                    data-search="${esc(`${p.numero_corpo||''} ${p.nome||''}`.toLowerCase())}">
-              <input type="checkbox" name="pessoa_id" value="${p.id}">
+              <input type="checkbox" name="pessoa_id" value="${p.id}"
+                ${selectedIds.has(String(p.id))?'checked':''}>
               <span>
                 <b>${esc(p.numero_corpo||'—')} · ${esc(p.nome)}</b>
                 <small>${esc(p.ramo||'—')} · TM · 6.º ano</small>
@@ -468,6 +493,18 @@ function openAgendaEvaluationEditor(defaultDate=''){
           `).join('')}
         </div>
       </div>
+
+      ${isEdit?`
+        <div class="agenda-edit-danger">
+          <div>
+            <b>Eliminar avaliação</b>
+            <small>Apaga esta avaliação para todas as pessoas atualmente associadas.</small>
+          </div>
+          <button id="agendaDeleteEvaluationGroup" type="button" class="danger-btn">
+            Eliminar para todos
+          </button>
+        </div>
+      `:''}
     </div>`,
     async f=>{
       const personIds=f.getAll('pessoa_id').map(String);
@@ -485,10 +522,86 @@ function openAgendaEvaluationEditor(defaultDate=''){
         return toast('Preenche a cadeira e a data.');
       }
 
-      // Evita duplicar a mesma avaliação para a mesma pessoa.
-      const existing=new Set(
+      if(!isEdit){
+        const existing=new Set(
+          S.evaluations
+            .filter(ev=>
+              String(ev.data||'')===data &&
+              String(ev.cadeira||'').trim().toLowerCase()===cadeira.toLowerCase() &&
+              String(ev.tipo||'').trim().toLowerCase()===tipo.toLowerCase()
+            )
+            .map(ev=>String(ev.pessoa_id))
+        );
+
+        const newIds=personIds.filter(id=>!existing.has(id));
+
+        if(!newIds.length){
+          return toast('Essa avaliação já está associada às pessoas selecionadas.');
+        }
+
+        const rows=newIds.map(personId=>({
+          pessoa_id:personId,
+          cadeira,
+          tipo,
+          data,
+          observacao
+        }));
+
+        const {error}=await supabase
+          .from('avaliacoes_turma')
+          .insert(rows);
+
+        if(error)return toast(error.message);
+
+        closeModal();
+        await refreshEvaluations();
+        renderClassModule();
+
+        const skipped=personIds.length-newIds.length;
+        toast(
+          skipped
+            ? `Avaliação adicionada a ${newIds.length} pessoa(s); ${skipped} já tinha(m) esse registo.`
+            : `Avaliação adicionada a ${newIds.length} pessoa(s).`
+        );
+        return;
+      }
+
+      const groupRecords=group.records||[];
+      const groupRecordIds=groupRecords.map(r=>r.id);
+      const currentIds=new Set(groupRecords.map(r=>String(r.pessoa_id)));
+      const selectedSet=new Set(personIds);
+
+      const commonPayload={cadeira,tipo,data,observacao};
+
+      // Atualiza os registos que já pertenciam a esta avaliação.
+      if(groupRecordIds.length){
+        const {error:updateError}=await supabase
+          .from('avaliacoes_turma')
+          .update(commonPayload)
+          .in('id',groupRecordIds);
+
+        if(updateError)return toast(updateError.message);
+      }
+
+      // Remove pessoas que foram desmarcadas.
+      const removeIds=groupRecords
+        .filter(r=>!selectedSet.has(String(r.pessoa_id)))
+        .map(r=>r.id);
+
+      if(removeIds.length){
+        const {error:deleteError}=await supabase
+          .from('avaliacoes_turma')
+          .delete()
+          .in('id',removeIds);
+
+        if(deleteError)return toast(deleteError.message);
+      }
+
+      // Adiciona novas pessoas, evitando duplicados já existentes fora do grupo.
+      const targetOutside=new Set(
         S.evaluations
           .filter(ev=>
+            !groupRecordIds.includes(ev.id) &&
             String(ev.data||'')===data &&
             String(ev.cadeira||'').trim().toLowerCase()===cadeira.toLowerCase() &&
             String(ev.tipo||'').trim().toLowerCase()===tipo.toLowerCase()
@@ -496,35 +609,31 @@ function openAgendaEvaluationEditor(defaultDate=''){
           .map(ev=>String(ev.pessoa_id))
       );
 
-      const newIds=personIds.filter(id=>!existing.has(id));
+      const addIds=personIds.filter(id=>
+        !currentIds.has(id) &&
+        !targetOutside.has(id)
+      );
 
-      if(!newIds.length){
-        return toast('Essa avaliação já está associada às pessoas selecionadas.');
+      if(addIds.length){
+        const {error:insertError}=await supabase
+          .from('avaliacoes_turma')
+          .insert(addIds.map(personId=>({
+            pessoa_id:personId,
+            ...commonPayload
+          })));
+
+        if(insertError)return toast(insertError.message);
       }
-
-      const rows=newIds.map(personId=>({
-        pessoa_id:personId,
-        cadeira,
-        tipo,
-        data,
-        observacao
-      }));
-
-      const {error}=await supabase
-        .from('avaliacoes_turma')
-        .insert(rows);
-
-      if(error)return toast(error.message);
 
       closeModal();
       await refreshEvaluations();
-      renderClassAgenda();
+      renderClassModule();
 
-      const skipped=personIds.length-newIds.length;
+      const skipped=personIds.filter(id=>!currentIds.has(id)&&targetOutside.has(id)).length;
       toast(
         skipped
-          ? `Avaliação adicionada a ${newIds.length} pessoa(s); ${skipped} já tinha(m) esse registo.`
-          : `Avaliação adicionada a ${newIds.length} pessoa(s).`
+          ? `Avaliação atualizada. ${skipped} associação(ões) já existia(m).`
+          : 'Avaliação atualizada.'
       );
     }
   );
@@ -572,15 +681,15 @@ function openAgendaEvaluationEditor(defaultDate=''){
 
   $$('.agenda-group-btn').forEach(btn=>{
     btn.onclick=()=>{
-      const group=btn.dataset.group;
+      const groupNumber=btn.dataset.group;
 
-      if(group==='all'){
+      if(groupNumber==='all'){
         options().forEach(label=>{
           label.querySelector('input').checked=true;
         });
       }else{
         const ids=new Set(
-          classSchedulePeopleByGroup(Number(group)).map(p=>String(p.id))
+          classSchedulePeopleByGroup(Number(groupNumber)).map(p=>String(p.id))
         );
 
         options().forEach(label=>{
@@ -593,8 +702,32 @@ function openAgendaEvaluationEditor(defaultDate=''){
     };
   });
 
+  if(isEdit){
+    $('#agendaDeleteEvaluationGroup').onclick=async()=>{
+      if(!confirm(
+        `Eliminar "${group.cadeira}" de ${fmt(group.data)} para todas as ${group.records.length} pessoa(s) associadas?`
+      ))return;
+
+      const ids=(group.records||[]).map(r=>r.id);
+      if(!ids.length)return;
+
+      const {error}=await supabase
+        .from('avaliacoes_turma')
+        .delete()
+        .in('id',ids);
+
+      if(error)return toast(error.message);
+
+      closeModal();
+      await refreshEvaluations();
+      renderClassModule();
+      toast('Avaliação eliminada para todos.');
+    };
+  }
+
   updateCount();
 }
+
 
 
 function agendaPeopleLabel(people){
@@ -611,6 +744,113 @@ function agendaPeopleLabel(people){
   return `${sorted.slice(0,3)
     .map(p=>`${p.numero_corpo||'—'} · ${agendaShortName(p.nome)}`)
     .join(' · ')} · +${sorted.length-3}`;
+}
+
+
+function renderAgendaFilterOptions(groups){
+  const subject=$('#agendaFilterSubject');
+  const person=$('#agendaFilterPerson');
+  if(!subject||!person)return;
+
+  const subjects=[...new Set(
+    groups.map(g=>String(g.cadeira||'').trim()).filter(Boolean)
+  )].sort((a,b)=>a.localeCompare(b,'pt',{sensitivity:'base'}));
+
+  const people=[...tmPeople()].sort((a,b)=>{
+    const an=Number(a.numero_corpo),bn=Number(b.numero_corpo);
+    if(!Number.isNaN(an)&&!Number.isNaN(bn))return an-bn;
+    return String(a.nome||'').localeCompare(String(b.nome||''),'pt');
+  });
+
+  subject.innerHTML=
+    '<option value="">Todas</option>'+
+    subjects.map(s=>`<option value="${esc(s)}">${esc(s)}</option>`).join('');
+
+  person.innerHTML=
+    '<option value="">Todas</option>'+
+    people.map(p=>`
+      <option value="${p.id}">
+        ${esc(p.numero_corpo||'—')} · ${esc(p.nome)}
+      </option>
+    `).join('');
+
+  subject.value=classAgendaFilters.subject;
+  $('#agendaFilterType').value=classAgendaFilters.type;
+  person.value=classAgendaFilters.person;
+  $('#agendaFilterGroup').value=classAgendaFilters.group;
+}
+
+function filterAgendaGroups(groups){
+  let result=[...groups];
+
+  if(classAgendaFilters.subject){
+    const target=classAgendaFilters.subject.toLowerCase();
+    result=result.filter(g=>
+      String(g.cadeira||'').trim().toLowerCase()===target
+    );
+  }
+
+  if(classAgendaFilters.type){
+    result=result.filter(g=>
+      String(g.tipo||'')===classAgendaFilters.type
+    );
+  }
+
+  if(classAgendaFilters.person){
+    result=result.filter(g=>
+      g.people.some(p=>String(p.id)===String(classAgendaFilters.person))
+    );
+  }
+
+  if(classAgendaFilters.group){
+    const groupIds=new Set(
+      classSchedulePeopleByGroup(Number(classAgendaFilters.group))
+        .map(p=>String(p.id))
+    );
+
+    result=result.filter(g=>
+      g.people.some(p=>groupIds.has(String(p.id)))
+    );
+  }
+
+  return result;
+}
+
+function bindAgendaFilters(){
+  const map=[
+    ['#agendaFilterSubject','subject'],
+    ['#agendaFilterType','type'],
+    ['#agendaFilterPerson','person'],
+    ['#agendaFilterGroup','group']
+  ];
+
+  map.forEach(([selector,key])=>{
+    const el=$(selector);
+    if(!el)return;
+    el.onchange=()=>{
+      classAgendaFilters[key]=el.value;
+      renderClassAgenda();
+    };
+  });
+
+  const clear=$('#agendaClearFilters');
+  if(clear){
+    clear.onclick=()=>{
+      classAgendaFilters={subject:'',type:'',person:'',group:''};
+      renderClassAgenda();
+    };
+  }
+}
+
+function bindAgendaEvaluationManagement(){
+  $$('.agenda-evaluation-manage').forEach(el=>{
+    el.onclick=e=>{
+      e.stopPropagation();
+      const key=decodeURIComponent(el.dataset.evalKey||'');
+      const group=findAgendaGroupByKey(key);
+      if(group)openAgendaEvaluationEditor(group.data,group);
+    };
+  });
 }
 
 function renderClassAgendaList(all,holidays=[]){
@@ -678,7 +918,9 @@ function renderClassAgendaList(all,holidays=[]){
     );
 
     return `
-      <div class="agenda-list-row ${pastMode?'past':''}">
+      <div class="agenda-list-row agenda-evaluation-manage ${pastMode?'past':''}"
+           data-eval-key="${esc(encodeURIComponent(ev.key))}"
+           title="Abrir e gerir esta avaliação">
         <div class="agenda-list-date">
           <strong>${fmt(ev.data)}</strong>
           <span>${new Intl.DateTimeFormat('pt-PT',{weekday:'short'}).format(new Date(`${ev.data}T12:00:00`))}</span>
@@ -756,7 +998,11 @@ function renderClassAgenda(){
   const firstWeekday=(first.getDay()+6)%7; // Seg=0 ... Dom=6
   const gridStart=new Date(year,month,1-firstWeekday);
 
-  const all=aggregateAgendaEvaluations(classEvaluationRows());
+  const allUnfiltered=aggregateAgendaEvaluations(classEvaluationRows());
+  renderAgendaFilterOptions(allUnfiltered);
+  bindAgendaFilters();
+
+  const all=filterAgendaGroups(allUnfiltered);
 
   const calendarEnd=new Date(gridStart);
   calendarEnd.setDate(calendarEnd.getDate()+41);
@@ -841,8 +1087,9 @@ function renderClassAgenda(){
       `).join('');
 
       return `
-        <div class="agenda-evaluation ${cls}"
-             title="${esc(`${ev.tipo} · ${ev.cadeira}${obs} · ${tooltip}`)}">
+        <div class="agenda-evaluation agenda-evaluation-manage ${cls}"
+             data-eval-key="${esc(encodeURIComponent(ev.key))}"
+             title="${esc(`Abrir · ${ev.tipo} · ${ev.cadeira}${obs} · ${tooltip}`)}">
           <div class="agenda-evaluation-top">
             <b>${esc(ev.cadeira)}</b>
             <span>${esc(ev.tipo)}</span>
@@ -874,6 +1121,8 @@ function renderClassAgenda(){
   }
 
   grid.innerHTML=html;
+
+  bindAgendaEvaluationManagement();
 
   $$('.agenda-day-add').forEach(btn=>{
     btn.onclick=e=>{
@@ -1061,6 +1310,140 @@ function renderClassSchedules(){
   $('#classScheduleNextBottom').onclick=next;
 }
 
+
+function classEvaluationConflicts(){
+  const todayIso=today();
+  const perPerson=new Map();
+
+  classEvaluationRows()
+    .filter(ev=>String(ev.data||'')>=todayIso)
+    .forEach(ev=>{
+      const pid=String(ev.pessoa_id);
+      if(!perPerson.has(pid))perPerson.set(pid,new Map());
+
+      const byDate=perPerson.get(pid);
+      if(!byDate.has(ev.data))byDate.set(ev.data,[]);
+
+      const identity=[
+        String(ev.cadeira||'').trim().toLowerCase(),
+        String(ev.tipo||'').trim().toLowerCase()
+      ].join('|');
+
+      if(!byDate.get(ev.data).some(x=>x.identity===identity)){
+        byDate.get(ev.data).push({identity,ev});
+      }
+    });
+
+  const conflicts=[];
+
+  perPerson.forEach((dateMap,pid)=>{
+    const person=S.people.find(p=>String(p.id)===pid);
+    if(!person)return;
+
+    const dates=[...dateMap.keys()].sort();
+
+    dates.forEach(date=>{
+      const items=dateMap.get(date)||[];
+      if(items.length>=2){
+        conflicts.push({
+          person,
+          kind:'same-day',
+          date,
+          items:items.map(x=>x.ev),
+          sortDate:date
+        });
+      }
+    });
+
+    for(let i=0;i<dates.length-1;i++){
+      const a=dates[i],b=dates[i+1];
+      const diff=Math.round(
+        (new Date(`${b}T12:00:00`)-new Date(`${a}T12:00:00`))/86400000
+      );
+
+      if(diff===1){
+        conflicts.push({
+          person,
+          kind:'consecutive',
+          date:a,
+          nextDate:b,
+          items:[
+            ...dateMap.get(a).map(x=>x.ev),
+            ...dateMap.get(b).map(x=>x.ev)
+          ],
+          sortDate:a
+        });
+      }
+    }
+  });
+
+  return conflicts.sort((a,b)=>
+    String(a.sortDate).localeCompare(String(b.sortDate)) ||
+    String(a.person.nome||'').localeCompare(String(b.person.nome||''),'pt')
+  );
+}
+
+function renderClassConflicts(){
+  const target=$('#classConflictSummary');
+  const count=$('#classConflictCount');
+  if(!target||!count)return;
+
+  const conflicts=classEvaluationConflicts();
+  const peopleCount=new Set(conflicts.map(c=>String(c.person.id))).size;
+
+  count.textContent=conflicts.length
+    ? `${conflicts.length} alerta${conflicts.length===1?'':'s'}`
+    : 'Sem alertas';
+
+  if(!conflicts.length){
+    target.innerHTML=`
+      <div class="profile-empty conflict-clear">
+        Não foram detetadas avaliações múltiplas no mesmo dia nem em dias consecutivos.
+      </div>`;
+    return;
+  }
+
+  const visible=conflicts.slice(0,8);
+
+  target.innerHTML=`
+    <div class="conflict-overview">
+      <b>${peopleCount} pessoa${peopleCount===1?'':'s'} com possível sobrecarga</b>
+      <span>São apenas alertas de planeamento; não impedem o registo das avaliações.</span>
+    </div>
+
+    <div class="conflict-list">
+      ${visible.map(c=>{
+        const labels=[...new Set(c.items.map(ev=>`${ev.cadeira} (${ev.tipo})`))];
+
+        if(c.kind==='same-day'){
+          return `
+            <div class="conflict-row severe">
+              <div class="conflict-icon">!</div>
+              <div>
+                <b>${esc(c.person.numero_corpo||'—')} · ${esc(c.person.nome)}</b>
+                <span>${fmt(c.date)} · ${c.items.length} avaliações no mesmo dia</span>
+                <small>${esc(labels.join(' · '))}</small>
+              </div>
+            </div>`;
+        }
+
+        return `
+          <div class="conflict-row consecutive">
+            <div class="conflict-icon">↔</div>
+            <div>
+              <b>${esc(c.person.numero_corpo||'—')} · ${esc(c.person.nome)}</b>
+              <span>${fmt(c.date)} e ${fmt(c.nextDate)} · dias consecutivos</span>
+              <small>${esc(labels.join(' · '))}</small>
+            </div>
+          </div>`;
+      }).join('')}
+
+      ${conflicts.length>visible.length
+        ? `<div class="conflict-more">+ ${conflicts.length-visible.length} alerta(s)</div>`
+        : ''}
+    </div>`;
+}
+
 function renderClassModule(){
   const people=tmPeople();
   if(!$('#cTotal'))return;
@@ -1201,6 +1584,7 @@ function renderClassModule(){
 
   renderClassPeople();
   renderClassAgenda();
+  renderClassConflicts();
   renderClassSchedules();
 }
 

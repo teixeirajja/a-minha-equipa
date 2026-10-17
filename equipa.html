@@ -5,7 +5,7 @@
   <meta name="viewport" content="width=device-width,initial-scale=1">
   <title>QGApp — A Minha Equipa</title>
   <link rel="icon" type="image/png" href="equipa-favicon.png">
-  <link rel="stylesheet" href="styles.css?v=6.9.1">
+  <link rel="stylesheet" href="styles.css?v=6.10">
 </head>
 <body data-qg-page="team">
 <div id="toast" class="toast hidden"></div>
@@ -459,6 +459,17 @@
         </div>
       </div>
 
+      <div class="panel class-conflict-panel">
+        <div class="panel-head">
+          <div>
+            <h3>Conflitos e sobrecarga</h3>
+            <p>Avisa quando a mesma pessoa tem várias avaliações no mesmo dia ou em dias consecutivos.</p>
+          </div>
+          <span id="classConflictCount" class="conflict-count-badge">—</span>
+        </div>
+        <div id="classConflictSummary" class="class-conflict-summary"></div>
+      </div>
+
       <div class="panel class-data-health-panel">
         <div class="panel-head">
           <div>
@@ -531,6 +542,43 @@
             <button id="agendaCalendarView" type="button" class="secondary active">Calendário</button>
             <button id="agendaListView" type="button" class="secondary">Lista</button>
           </div>
+        </div>
+
+        <div class="agenda-filter-bar">
+          <label>
+            <span>Cadeira</span>
+            <select id="agendaFilterSubject"><option value="">Todas</option></select>
+          </label>
+
+          <label>
+            <span>Tipo</span>
+            <select id="agendaFilterType">
+              <option value="">Todos</option>
+              <option value="Teste">Teste</option>
+              <option value="Exame">Exame</option>
+              <option value="Trabalho">Trabalho</option>
+              <option value="Apresentação">Apresentação</option>
+              <option value="Outro">Outro</option>
+            </select>
+          </label>
+
+          <label>
+            <span>Pessoa</span>
+            <select id="agendaFilterPerson"><option value="">Todas</option></select>
+          </label>
+
+          <label>
+            <span>Horário</span>
+            <select id="agendaFilterGroup">
+              <option value="">Todos</option>
+              <option value="1">TM_1</option>
+              <option value="2">TM_2</option>
+              <option value="3">TM_3</option>
+              <option value="4">TM_4</option>
+            </select>
+          </label>
+
+          <button id="agendaClearFilters" type="button" class="secondary">Limpar filtros</button>
         </div>
 
         <div id="classCalendarViewWrap" class="class-calendar-wrap">
@@ -927,6 +975,6 @@
   <div id="profileBody" class="profile-body"></div>
 </dialog>
 
-<script type="module" src="app.js?v=6.9.1"></script>
+<script type="module" src="app.js?v=6.10"></script>
 </body>
 </html>

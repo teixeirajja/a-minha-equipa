@@ -1978,3 +1978,169 @@ body{
 .week-agenda-row.holiday{
   color:#7b2340;
 }
+
+
+/* V6.10 — filtros, gestão global de avaliações e conflitos */
+.agenda-filter-bar{
+  display:grid;
+  grid-template-columns:repeat(4,minmax(130px,1fr)) auto;
+  gap:10px;
+  align-items:end;
+  padding:0 18px 16px;
+  border-bottom:1px solid var(--line);
+}
+.agenda-filter-bar label{
+  display:grid;
+  gap:5px;
+  margin:0;
+}
+.agenda-filter-bar label > span{
+  color:var(--muted);
+  font-size:11px;
+  font-weight:800;
+  text-transform:uppercase;
+}
+.agenda-filter-bar select{
+  width:100%;
+}
+
+.agenda-evaluation-manage{
+  cursor:pointer;
+  transition:transform .12s ease,box-shadow .12s ease;
+}
+.agenda-evaluation-manage:hover{
+  transform:translateY(-1px);
+  box-shadow:0 3px 10px rgba(21,46,62,.12);
+}
+
+.agenda-edit-danger{
+  display:flex;
+  align-items:center;
+  justify-content:space-between;
+  gap:14px;
+  border:1px solid #e4b4bc;
+  background:#fff7f8;
+  border-radius:11px;
+  padding:12px 14px;
+}
+.agenda-edit-danger > div{
+  display:grid;
+  gap:3px;
+}
+.agenda-edit-danger small{
+  color:#8e4c57;
+}
+.danger-btn{
+  border:1px solid #c85a6b;
+  background:#fff;
+  color:#a22f43;
+  border-radius:8px;
+  padding:9px 11px;
+  font-weight:800;
+  white-space:nowrap;
+}
+.danger-btn:hover{
+  background:#fdecef;
+}
+
+.class-conflict-panel{
+  margin-top:16px;
+}
+.conflict-count-badge{
+  display:inline-flex;
+  align-items:center;
+  justify-content:center;
+  min-height:30px;
+  padding:0 10px;
+  border-radius:999px;
+  background:#fff0d8;
+  color:#955c00;
+  font-size:12px;
+  font-weight:800;
+}
+.class-conflict-summary{
+  padding:14px 18px 18px;
+}
+.conflict-overview{
+  display:flex;
+  align-items:center;
+  justify-content:space-between;
+  gap:14px;
+  margin-bottom:12px;
+}
+.conflict-overview span{
+  color:var(--muted);
+  font-size:12px;
+}
+.conflict-list{
+  display:grid;
+  gap:8px;
+}
+.conflict-row{
+  display:grid;
+  grid-template-columns:34px 1fr;
+  gap:10px;
+  align-items:center;
+  border:1px solid var(--line);
+  border-radius:10px;
+  padding:10px 12px;
+}
+.conflict-row.severe{
+  border-left:4px solid #c45151;
+  background:#fff9f9;
+}
+.conflict-row.consecutive{
+  border-left:4px solid #d59a2e;
+  background:#fffdf7;
+}
+.conflict-icon{
+  width:30px;
+  height:30px;
+  border-radius:50%;
+  display:grid;
+  place-items:center;
+  background:#f2f4f5;
+  font-weight:900;
+}
+.conflict-row > div:last-child{
+  display:grid;
+  gap:2px;
+}
+.conflict-row span{
+  font-size:12px;
+}
+.conflict-row small{
+  color:var(--muted);
+}
+.conflict-more{
+  color:var(--muted);
+  font-size:12px;
+  font-weight:700;
+  padding:4px 2px;
+}
+.conflict-clear{
+  padding:8px 0;
+}
+
+@media(max-width:1000px){
+  .agenda-filter-bar{
+    grid-template-columns:repeat(2,minmax(0,1fr));
+  }
+  .agenda-filter-bar > button{
+    grid-column:1 / -1;
+  }
+}
+
+@media(max-width:650px){
+  .agenda-filter-bar{
+    grid-template-columns:1fr;
+  }
+  .agenda-filter-bar > button{
+    grid-column:auto;
+  }
+  .agenda-edit-danger,
+  .conflict-overview{
+    align-items:flex-start;
+    flex-direction:column;
+  }
+}

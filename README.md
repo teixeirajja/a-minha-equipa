@@ -805,3 +805,23 @@ Na página `A Minha Turma`:
 A Turma continua limitada a `TM · 6.º ano`.
 
 Não requer SQL novo.
+
+
+## V6.3 — Turma: colunas removidas + horários TM 6.º ano
+
+Na página `A Minha Turma`:
+
+- as colunas `Origem` e `Função` foram removidas fisicamente da tabela;
+- foi criada a nova aba `Horários`;
+- essa aba reutiliza diretamente os horários já existentes no módulo Equipa;
+- são mostrados automaticamente os modelos com nomes:
+  - `6.º ANO TM_1`
+  - `6.º ANO TM_2`
+  - `6.º ANO TM_3`
+  - `6.º ANO TM_4`
+- o filtro tolera pequenas diferenças de espaços, hífens e o símbolo `º`;
+- cada cartão permite abrir o horário completo na grelha semanal existente.
+
+Os horários não são duplicados na base de dados: a Turma apresenta os mesmos registos já guardados no Supabase.
+
+Não requer SQL novo.

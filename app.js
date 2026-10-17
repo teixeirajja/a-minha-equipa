@@ -196,7 +196,8 @@ function showClassModule(){
 
 const classTitles={
   classInicio:['Resumo da Turma','Turma TM · 6.º ano.'],
-  classPessoas:['Turma TM · 6.º ano','Todos os TM do 6.º ano, da equipa ou externos.']
+  classPessoas:['Turma TM · 6.º ano','Todos os TM do 6.º ano.'],
+  classHorarios:['Horários da Turma','Horários 6.º ANO TM_1 a 6.º ANO TM_4.']
 };
 
 function classPage(id){
@@ -208,6 +209,85 @@ function classPage(id){
 
 function classOrigin(p){
   return p.integra_equipa===false?'Externo':'Equipa';
+}
+
+
+function classScheduleModels(){
+  return S.scheduleModels
+    .filter(m=>{
+      const name=String(m.nome||'')
+        .toUpperCase()
+        .normalize('NFD')
+        .replace(/[\u0300-\u036f]/g,'')
+        .replace(/º/g,'')
+        .replace(/\s+/g,' ');
+
+      // Apanha 6ºANO TM_1 ... TM_4, tolerando espaços/hífens.
+      return /6\s*ANO\s*TM[\s_-]*[1-4]\b/.test(name);
+    })
+    .sort((a,b)=>
+      String(a.nome||'').localeCompare(
+        String(b.nome||''),
+        'pt',
+        {numeric:true,sensitivity:'base'}
+      )
+    );
+}
+
+function renderClassSchedules(){
+  const target=$('#classScheduleList');
+  if(!target)return;
+
+  const models=classScheduleModels();
+
+  target.innerHTML=models.map(m=>{
+    const blocks=scheduleBlocksForModel(m.id);
+    const people=schedulePeopleForModel(m.id);
+
+    const dayCounts=new Map();
+    blocks.forEach(b=>{
+      dayCounts.set(
+        b.dia_semana,
+        (dayCounts.get(b.dia_semana)||0)+1
+      );
+    });
+
+    return `<div class="schedule-model-card class-schedule-card">
+      <div class="schedule-model-top">
+        <div>
+          <h4>${esc(m.nome)}</h4>
+          <div class="schedule-model-meta">
+            ${fmt(m.data_inicio)} → ${fmt(m.data_fim)}
+            · ${blocks.length} bloco(s)
+            · ${people.length} pessoa(s)
+          </div>
+          <div class="schedule-day-chips">
+            ${[...dayCounts.entries()]
+              .sort((a,b)=>a[0]-b[0])
+              .map(([d,n])=>`<span class="schedule-chip">${day(d)} · ${n}</span>`)
+              .join('')}
+          </div>
+        </div>
+
+        <div class="schedule-model-actions">
+          <button
+            type="button"
+            class="export-btn view-class-schedule"
+            data-id="${m.id}">
+            Ver horário
+          </button>
+        </div>
+      </div>
+    </div>`;
+  }).join('') || `
+    <div class="summary">
+      Não foram encontrados horários com nomes
+      <b>6.º ANO TM_1</b> até <b>6.º ANO TM_4</b>.
+    </div>`;
+
+  $$('.view-class-schedule').forEach(btn=>{
+    btn.onclick=()=>openScheduleViewerByModel(btn.dataset.id);
+  });
 }
 
 function renderClassModule(){
@@ -236,6 +316,7 @@ function renderClassModule(){
     </div>`).join('');
 
   renderClassPeople();
+  renderClassSchedules();
 }
 
 function renderClassPeople(){

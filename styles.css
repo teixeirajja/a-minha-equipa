@@ -1029,3 +1029,14 @@ body{
 .class-person-row:hover td{
   background:#f5f9fb;
 }
+
+/* V6.3 — horários próprios na Turma */
+#classScheduleList{
+  padding:16px 18px 20px;
+}
+.class-schedule-card{
+  margin-bottom:12px;
+}
+.class-schedule-card:last-child{
+  margin-bottom:0;
+}

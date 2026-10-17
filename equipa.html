@@ -5,7 +5,7 @@
   <meta name="viewport" content="width=device-width,initial-scale=1">
   <title>QGApp — A Minha Equipa</title>
   <link rel="icon" type="image/png" href="equipa-favicon.png">
-  <link rel="stylesheet" href="styles.css?v=6.11.1">
+  <link rel="stylesheet" href="styles.css?v=6.12">
 </head>
 <body data-qg-page="team">
 <div id="toast" class="toast hidden"></div>
@@ -68,7 +68,7 @@
   </div>
 
   <div class="module-index-footer">
-    <span>QGApp · v6.11.1</span>
+    <span>QGApp · v6.12</span>
     <span class="module-footer-dot">•</span>
     <span id="moduleDataUpdated">Dados carregados agora</span>
   </div>
@@ -100,14 +100,58 @@
     </header>
 
     <section id="inicio" class="page active">
-      <div class="stats">
-        <article><span>Pessoas</span><strong id="sPeople">—</strong></article>
-        <article><span>5.º ano</span><strong id="sYear5">—</strong></article>
-        <article><span>6.º ano</span><strong id="sYear6">—</strong></article>
-        <article><span>Eventos futuros</span><strong id="sEvents">—</strong></article>
+      <div class="stats team-operational-stats">
+        <article>
+          <span>Pessoas</span>
+          <strong id="sPeople">—</strong>
+          <small>Elementos ativos da equipa</small>
+        </article>
+        <article>
+          <span>Indisponíveis hoje</span>
+          <strong id="sUnavailableToday">—</strong>
+          <small>Segundo constrangimentos e eventos</small>
+        </article>
+        <article>
+          <span>Indisponíveis amanhã</span>
+          <strong id="sUnavailableTomorrow">—</strong>
+          <small>Planeamento do dia seguinte</small>
+        </article>
+        <article>
+          <span>Eventos · 7 dias</span>
+          <strong id="sEvents">—</strong>
+          <small>Próximos compromissos</small>
+        </article>
       </div>
 
-      <div class="dashboard-grid">
+      <div class="team-quick-actions">
+        <button id="homeNewEventBtn" type="button" class="primary">+ Evento</button>
+        <button id="homeNewConstraintBtn" type="button" class="secondary">+ Constrangimento</button>
+        <button id="homeCheckAvailBtn" type="button" class="secondary">Consultar disponibilidade</button>
+      </div>
+
+      <div class="dashboard-grid team-operational-grid">
+        <div class="panel">
+          <div class="panel-head">
+            <div>
+              <h3>Próximo evento</h3>
+              <p>O compromisso mais próximo da equipa.</p>
+            </div>
+          </div>
+          <div id="homeNextEvent" class="team-next-event"></div>
+        </div>
+
+        <div class="panel">
+          <div class="panel-head">
+            <div>
+              <h3>Alertas da equipa</h3>
+              <p>Situações que podem precisar de atenção.</p>
+            </div>
+          </div>
+          <div id="homeTeamAlerts" class="team-alert-list"></div>
+        </div>
+      </div>
+
+      <div class="dashboard-grid team-secondary-grid">
         <div class="panel">
           <div class="panel-head">
             <div><h3>Pessoas por curso</h3><p>Verde: equipa · Vermelho: pessoal externo/com função.</p></div>
@@ -117,22 +161,23 @@
 
         <div class="panel">
           <div class="panel-head">
-            <div><h3>Distribuição</h3><p>Indicadores rápidos da equipa.</p></div>
+            <div><h3>Distribuição</h3><p>Indicadores secundários da equipa.</p></div>
           </div>
           <div class="mini-stats">
+            <article><span>5.º ano</span><strong id="sYear5">—</strong></article>
+            <article><span>6.º ano</span><strong id="sYear6">—</strong></article>
             <article><span>Engenheiros · 5.º</span><strong id="sEng5">—</strong></article>
             <article><span>Engenheiros · 6.º</span><strong id="sEng6">—</strong></article>
             <article><span>MED · 5.º</span><strong id="sMed5">—</strong></article>
             <article><span>Raparigas</span><strong id="sFemale">—</strong></article>
             <article><span>Rapazes</span><strong id="sMale">—</strong></article>
-            
           </div>
         </div>
       </div>
 
       <div class="panel dashboard-events">
         <div class="panel-head">
-          <div><h3>Próximos eventos</h3><p>Consulta rápida dos próximos compromissos.</p></div>
+          <div><h3>Próximos eventos</h3><p>Consulta rápida dos próximos compromissos nos próximos 7 dias.</p></div>
         </div>
         <div class="table-wrap">
           <table>
@@ -337,6 +382,7 @@
           <option value="">Todos</option>
           <option value="IMPEDITIVO">Impeditivo</option>
           <option value="POR_CONFIRMAR">Por confirmar</option>
+          <option value="CONDICIONADO">Condicionado</option>
           <option value="ACEITE">Aceite</option>
           <option value="NAO_ACEITE">Não aceite</option>
         </select>
@@ -989,6 +1035,6 @@
   <div id="profileBody" class="profile-body"></div>
 </dialog>
 
-<script type="module" src="app.js?v=6.11.1"></script>
+<script type="module" src="app.js?v=6.12"></script>
 </body>
 </html>

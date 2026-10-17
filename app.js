@@ -2518,15 +2518,13 @@ function generateEventPdfWithSort(eventId,criteria){
 }
 
 
-function renderHome(){
+async function renderHome(){
   const d=today();
 
-  // Os cartões principais continuam a contar apenas a equipa.
   const active=S.people.filter(
     p=>p.ativo!==false && p.integra_equipa!==false
   );
 
-  // Pessoas externas/com função entram apenas no gráfico por curso.
   const externalWithFunction=S.people.filter(
     p=>p.ativo!==false &&
        p.integra_equipa===false &&
@@ -2537,13 +2535,20 @@ function renderHome(){
   $('#sYear5').textContent=active.filter(p=>Number(p.ano)===5).length;
   $('#sYear6').textContent=active.filter(p=>Number(p.ano)===6).length;
 
-  // "Eventos futuros" = apenas os próximos 7 dias, incluindo hoje.
-  const weekEnd=new Date(`${d}T00:00:00`);
+  const weekEnd=new Date(`${d}T12:00:00`);
   weekEnd.setDate(weekEnd.getDate()+7);
   const weekEndIso=[
     weekEnd.getFullYear(),
     String(weekEnd.getMonth()+1).padStart(2,'0'),
     String(weekEnd.getDate()).padStart(2,'0')
+  ].join('-');
+
+  const tomorrowDate=new Date(`${d}T12:00:00`);
+  tomorrowDate.setDate(tomorrowDate.getDate()+1);
+  const tomorrowIso=[
+    tomorrowDate.getFullYear(),
+    String(tomorrowDate.getMonth()+1).padStart(2,'0'),
+    String(tomorrowDate.getDate()).padStart(2,'0')
   ].join('-');
 
   const nextWeekEvents=S.events.filter(
@@ -2553,6 +2558,34 @@ function renderHome(){
   );
 
   $('#sEvents').textContent=nextWeekEvents.length;
+
+  // Disponibilidade operacional dos cartões principais.
+  const teamIds=new Set(active.map(p=>String(p.id)));
+
+  const countUnavailable=rows=>rows.filter(r=>{
+    const rid=String(r.pessoa_id||'');
+    const belongs=rid
+      ? teamIds.has(rid)
+      : active.some(p=>String(p.numero_corpo||'')===String(r.numero_corpo||''));
+
+    return belongs && r.estado==='INDISPONIVEL';
+  }).length;
+
+  $('#sUnavailableToday').textContent='…';
+  $('#sUnavailableTomorrow').textContent='…';
+
+  try{
+    const [todayRows,tomorrowRows]=await Promise.all([
+      checkAvailability(d),
+      checkAvailability(tomorrowIso)
+    ]);
+
+    $('#sUnavailableToday').textContent=countUnavailable(todayRows);
+    $('#sUnavailableTomorrow').textContent=countUnavailable(tomorrowRows);
+  }catch{
+    $('#sUnavailableToday').textContent='—';
+    $('#sUnavailableTomorrow').textContent='—';
+  }
 
   const engineeringCourses=new Set(['TM','MAT','SMAT','ENG']);
 
@@ -2571,9 +2604,7 @@ function renderHome(){
   $('#sFemale').textContent=active.filter(p=>p.sexo==='F').length;
   $('#sMale').textContent=active.filter(p=>p.sexo==='M').length;
 
-  // Agrupar por ramo + curso.
-  // Mantém as barras que já existiam para a equipa e acrescenta,
-  // em vermelho, pessoas externas com função.
+  // Pessoas por curso.
   const grouped=new Map();
 
   const ensureGroup=p=>{
@@ -2632,13 +2663,11 @@ function renderHome(){
     return `
       <div class="metric-row">
         <div class="metric-label">${esc(g.label)}</div>
-
         <div class="metric-bar stacked"
              title="Equipa: ${g.team} · Pessoal com função: ${g.functional} · Total: ${g.total}">
           <span class="metric-team" style="width:${teamWidth}%"></span>
           <span class="metric-function" style="width:${functionWidth}%"></span>
         </div>
-
         ${counts}
       </div>
     `;
@@ -2651,6 +2680,114 @@ function renderHome(){
       )
     );
 
+  // Próximo evento destacado.
+  const nextEvent=future[0]||null;
+  const nextBox=$('#homeNextEvent');
+
+  if(nextBox){
+    if(nextEvent){
+      const assigned=S.assigned.filter(a=>a.evento_id===nextEvent.id).length;
+      nextBox.innerHTML=`
+        <div class="team-next-event-date">
+          <span>${fmt(nextEvent.data)}</span>
+          <strong>${nextEvent.hora_inicio?.slice(0,5)||'—'}</strong>
+        </div>
+        <div class="team-next-event-main">
+          <span>${eventStatusBadge(nextEvent)}</span>
+          <h3>${esc(nextEvent.nome)}</h3>
+          <p>${nextEvent.observacoes?esc(nextEvent.observacoes):'Sem observações.'}</p>
+        </div>
+        <div class="team-next-event-meta">
+          <b>${assigned}</b>
+          <span>empenhado${assigned===1?'':'s'}</span>
+          <button id="homeOpenNextEventBtn" type="button" class="secondary">Abrir evento</button>
+        </div>
+      `;
+
+      $('#homeOpenNextEventBtn').onclick=()=>openEventWizard(nextEvent);
+    }else{
+      nextBox.innerHTML='<div class="profile-empty">Sem eventos nos próximos 7 dias.</div>';
+    }
+  }
+
+  // Alertas operacionais.
+  const currentFutureConstraints=S.constraints.filter(c=>!isPastConstraint(c));
+  const pending=currentFutureConstraints.filter(c=>c.estado==='POR_CONFIRMAR');
+  const conditioned=currentFutureConstraints.filter(c=>c.estado==='CONDICIONADO');
+
+  const startingSoon=currentFutureConstraints.filter(c=>
+    c.estado!=='NAO_ACEITE' &&
+    String(c.data_inicio||'')>=d &&
+    String(c.data_inicio||'')<=weekEndIso
+  );
+
+  const noAssignedEvents=future.filter(
+    e=>S.assigned.filter(a=>a.evento_id===e.id).length===0
+  );
+
+  const scheduledPeople=new Set([
+    ...S.schedulePeople.map(x=>String(x.pessoa_id)),
+    ...S.scheduleModelPeople.map(x=>String(x.pessoa_id))
+  ]);
+
+  const withoutSchedule=active.filter(
+    p=>!scheduledPeople.has(String(p.id))
+  );
+
+  const alerts=[];
+
+  if(pending.length){
+    alerts.push({
+      cls:'amber',
+      title:`${pending.length} constrangimento${pending.length===1?'':'s'} por confirmar`,
+      text:'Existem situações que ainda precisam de decisão.'
+    });
+  }
+
+  if(conditioned.length){
+    alerts.push({
+      cls:'blue',
+      title:`${conditioned.length} situação${conditioned.length===1?'':'ões'} condicionada${conditioned.length===1?'':'s'}`,
+      text:'Estão registadas, mas não dispensam das atividades.'
+    });
+  }
+
+  if(startingSoon.length){
+    alerts.push({
+      cls:'gray',
+      title:`${startingSoon.length} constrangimento${startingSoon.length===1?'':'s'} começa${startingSoon.length===1?'':'m'} nos próximos 7 dias`,
+      text:'Convém ter estas datas presentes no planeamento.'
+    });
+  }
+
+  if(noAssignedEvents.length){
+    alerts.push({
+      cls:'red',
+      title:`${noAssignedEvents.length} evento${noAssignedEvents.length===1?'':'s'} sem empenhados`,
+      text:'Há eventos próximos ainda sem pessoas associadas.'
+    });
+  }
+
+  if(withoutSchedule.length){
+    alerts.push({
+      cls:'gray',
+      title:`${withoutSchedule.length} pessoa${withoutSchedule.length===1?'':'s'} sem horário associado`,
+      text:withoutSchedule.slice(0,3).map(p=>p.nome).join(', ')+(withoutSchedule.length>3?'…':'')
+    });
+  }
+
+  $('#homeTeamAlerts').innerHTML=alerts.length
+    ? alerts.slice(0,6).map(a=>`
+        <div class="team-alert-row">
+          <span class="team-alert-dot ${a.cls}"></span>
+          <div>
+            <b>${esc(a.title)}</b>
+            <small>${esc(a.text)}</small>
+          </div>
+        </div>
+      `).join('')
+    : '<div class="profile-empty">Sem alertas operacionais neste momento.</div>';
+
   $('#homeEvents').innerHTML=future.map(e=>`
     <tr>
       <td>${fmt(e.data)}</td>
@@ -2659,6 +2796,15 @@ function renderHome(){
       <td>${S.assigned.filter(a=>a.evento_id===e.id).length}</td>
     </tr>
   `).join('') || '<tr><td colspan="4" class="muted">Sem eventos nos próximos 7 dias.</td></tr>';
+
+  // Ações rápidas.
+  if($('#homeNewEventBtn'))$('#homeNewEventBtn').onclick=()=>openEventWizard();
+  if($('#homeNewConstraintBtn'))$('#homeNewConstraintBtn').onclick=()=>openConstraint();
+  if($('#homeCheckAvailBtn'))$('#homeCheckAvailBtn').onclick=()=>{
+    page('consulta');
+    $('#availDate').value=today();
+    renderAvailability();
+  };
 }
 
 function badge(st){
@@ -3067,6 +3213,7 @@ function constraintStatusBadge(c){
   const map={
     IMPEDITIVO:['red','Impeditivo'],
     POR_CONFIRMAR:['amber','Por confirmar'],
+    CONDICIONADO:['blue','Condicionado'],
     ACEITE:['green','Aceite'],
     NAO_ACEITE:['gray','Não aceite']
   };
@@ -3234,10 +3381,16 @@ function openConstraint(c=null){
         <select name="estado">
           <option value="IMPEDITIVO" ${currentState==='IMPEDITIVO'?'selected':''}>Impeditivo</option>
           <option value="POR_CONFIRMAR" ${currentState==='POR_CONFIRMAR'?'selected':''}>Por confirmar</option>
+          <option value="CONDICIONADO" ${currentState==='CONDICIONADO'?'selected':''}>Condicionado</option>
           <option value="ACEITE" ${currentState==='ACEITE'?'selected':''}>Aceite</option>
           <option value="NAO_ACEITE" ${currentState==='NAO_ACEITE'?'selected':''}>Não aceite</option>
         </select>
       </label>
+
+      <div class="full constraint-state-help">
+        <b>Condicionado</b>
+        <span>Regista a situação, mas a pessoa continua disponível para atividades. Serve como aviso, não como dispensa.</span>
+      </div>
 
       <label class="full">Observação
         <input name="observacao" value="${esc(c?.observacao||'')}" placeholder="Motivo / informação adicional">

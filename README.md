@@ -1061,3 +1061,34 @@ Não requer SQL novo.
 - versão do rodapé atualizada para `v6.11.1`.
 
 Não requer SQL novo.
+
+
+## V6.12 — Resumo operacional da Equipa + constrangimento Condicionado
+
+### Resumo da Equipa
+O Resumo passa a mostrar:
+- Pessoas;
+- Indisponíveis hoje;
+- Indisponíveis amanhã;
+- Eventos nos próximos 7 dias;
+- próximo evento em destaque;
+- alertas operacionais;
+- ações rápidas para Evento, Constrangimento e Disponibilidade.
+
+A distribuição por curso e restantes estatísticas continuam disponíveis, mas passam para segundo plano.
+
+### Novo estado: Condicionado
+Foi acrescentado o estado `CONDICIONADO` aos constrangimentos.
+
+Serve para situações em que existe uma semana/período já marcado, mas isso **não constitui dispensa automática** caso haja uma atividade.
+
+Na disponibilidade:
+- a pessoa continua como `DISPONÍVEL`;
+- o motivo mostra `Condicionado — ...`;
+- o registo aparece nos alertas do Resumo.
+
+### IMPORTANTE
+Antes de publicar esta versão, executar no Supabase SQL Editor:
+
+`17_migracao_constrangimento_condicionado.sql`
+

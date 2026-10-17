@@ -2239,3 +2239,152 @@ body{
     max-width:420px;
   }
 }
+
+
+/* V6.12 — Resumo operacional da Equipa */
+.team-operational-stats article small{
+  display:block;
+  margin-top:5px;
+  color:var(--muted);
+  font-size:11px;
+}
+
+.team-quick-actions{
+  display:flex;
+  gap:8px;
+  flex-wrap:wrap;
+  padding:0 28px 14px;
+}
+
+.team-operational-grid{
+  margin-bottom:16px;
+}
+
+.team-next-event{
+  padding:18px;
+  min-height:160px;
+  display:grid;
+  grid-template-columns:105px minmax(0,1fr) minmax(120px,auto);
+  gap:18px;
+  align-items:center;
+}
+
+.team-next-event-date{
+  display:grid;
+  gap:5px;
+  text-align:center;
+  padding-right:18px;
+  border-right:1px solid var(--line);
+}
+
+.team-next-event-date span{
+  color:var(--muted);
+  font-size:12px;
+  font-weight:700;
+}
+
+.team-next-event-date strong{
+  font-size:26px;
+}
+
+.team-next-event-main h3{
+  margin:8px 0 4px;
+  font-size:22px;
+}
+
+.team-next-event-main p{
+  margin:0;
+  color:var(--muted);
+}
+
+.team-next-event-meta{
+  display:grid;
+  justify-items:end;
+  gap:3px;
+}
+
+.team-next-event-meta > b{
+  font-size:25px;
+}
+
+.team-next-event-meta > span{
+  color:var(--muted);
+  font-size:11px;
+  margin-bottom:7px;
+}
+
+.team-alert-list{
+  padding:10px 18px 16px;
+  display:grid;
+  gap:7px;
+}
+
+.team-alert-row{
+  display:grid;
+  grid-template-columns:12px minmax(0,1fr);
+  gap:10px;
+  align-items:start;
+  padding:9px 0;
+  border-bottom:1px solid var(--line);
+}
+
+.team-alert-row:last-child{
+  border-bottom:0;
+}
+
+.team-alert-row > div{
+  display:grid;
+  gap:3px;
+}
+
+.team-alert-row small{
+  color:var(--muted);
+}
+
+.team-alert-dot{
+  width:10px;
+  height:10px;
+  margin-top:4px;
+  border-radius:50%;
+}
+
+.team-alert-dot.red{background:#c84a45}
+.team-alert-dot.amber{background:#cf8a1f}
+.team-alert-dot.blue{background:#4d72b8}
+.team-alert-dot.gray{background:#8a9690}
+
+.team-secondary-grid{
+  margin-bottom:16px;
+}
+
+.constraint-state-help{
+  border:1px solid #cdd9ee;
+  background:#f5f8ff;
+  color:#40506f;
+  border-radius:9px;
+  padding:10px 12px;
+  display:grid;
+  gap:3px;
+  font-size:12px;
+}
+
+.constraint-state-help b{
+  color:#294e9c;
+}
+
+@media(max-width:850px){
+  .team-next-event{
+    grid-template-columns:1fr;
+  }
+
+  .team-next-event-date{
+    text-align:left;
+    border-right:0;
+    border-bottom:1px solid var(--line);
+    padding:0 0 12px;
+  }
+
+  .team-next-event-meta{
+    justify-items:start;
+  }
+}

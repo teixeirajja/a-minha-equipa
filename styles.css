@@ -411,3 +411,55 @@ label small.muted{font-weight:400;margin-top:-2px;color:var(--muted)}
   background:#edf0ee;
   color:#59625d;
 }
+
+/* V5.3 — constrangimentos para várias pessoas */
+.multi-people-box{
+  border:1px solid var(--line);
+  border-radius:10px;
+  overflow:hidden;
+  background:#fff;
+}
+.multi-people-toolbar{
+  display:grid;
+  grid-template-columns:1fr auto auto;
+  gap:8px;
+  padding:10px;
+  border-bottom:1px solid var(--line);
+}
+.multi-people-toolbar input{margin:0}
+.multi-people-list{
+  max-height:220px;
+  overflow:auto;
+  padding:8px;
+  display:grid;
+  gap:6px;
+}
+.multi-person-row{
+  display:flex;
+  align-items:flex-start;
+  gap:8px;
+  padding:7px 8px;
+  border:1px solid var(--line);
+  border-radius:8px;
+  margin:0;
+  font-weight:400;
+}
+.multi-person-row input{
+  width:auto;
+  margin-top:2px;
+}
+.multi-person-row b{
+  display:block;
+  font-size:12px;
+}
+.multi-person-row small{
+  display:block;
+  color:var(--muted);
+  margin-top:2px;
+}
+.multi-people-count{
+  padding:8px 10px;
+  border-top:1px solid var(--line);
+  font-size:12px;
+  color:var(--muted);
+}

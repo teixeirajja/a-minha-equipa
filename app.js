@@ -740,21 +740,29 @@ function openConstraint(c=null){
   modal(
     c?'Editar constrangimento':'Novo constrangimento',
     `<div class="grid2">
-      <label class="full">
-        Pessoa
-        <input
-          name="pessoa_search"
-          list="peopleDatalist"
-          autocomplete="off"
-          placeholder="Escreve nº ou nome..."
-          value="${esc(currentPerson?personLabel(currentPerson):'')}"
-          required>
-        ${personDatalist()}
-        <small class="muted">Podes escrever o nº de corpo ou parte do nome e escolher uma sugestão.</small>
-      </label>
+      ${
+        c
+        ? `<label class="full">
+            Pessoa
+            <input value="${esc(currentPerson?personLabel(currentPerson):'')}" disabled>
+            <small class="muted">Ao editar, alteras apenas o registo desta pessoa.</small>
+          </label>`
+        : `<div class="full">
+            <label>Pessoas</label>
+            <div class="multi-people-box">
+              <div class="multi-people-toolbar">
+                <input id="constraintPeopleSearch" placeholder="Pesquisar nº, nome, curso...">
+                <button id="constraintSelectVisible" type="button" class="secondary">Selecionar visíveis</button>
+                <button id="constraintClearPeople" type="button" class="secondary">Limpar</button>
+              </div>
+              <div id="constraintPeopleList" class="multi-people-list"></div>
+              <div id="constraintPeopleCount" class="multi-people-count">0 selecionadas</div>
+            </div>
+          </div>`
+      }
 
       <label>Tipo
-        <input name="tipo" value="${esc(c?.tipo||'')}" placeholder="Ex.: Doente, ERASMUS, compromisso..." required>
+        <input name="tipo" value="${esc(c?.tipo||'')}" placeholder="Ex.: Doente, ERASMUS, treino..." required>
       </label>
 
       <label>Estado
@@ -795,9 +803,6 @@ function openConstraint(c=null){
       </div>
     </div>`,
     async f=>{
-      const person=personFromSearch(f.get('pessoa_search'));
-      if(!person) return toast('Escolhe uma pessoa válida da lista.');
-
       const horaInicio=f.get('hora_inicio')||null;
       const horaFim=f.get('hora_fim')||null;
 
@@ -805,8 +810,7 @@ function openConstraint(c=null){
         return toast('Se usares horas, preenche hora de início e hora de fim.');
       }
 
-      const x={
-        pessoa_id:person.id,
+      const base={
         tipo:f.get('tipo').trim(),
         estado:f.get('estado'),
         observacao:f.get('observacao')||null,
@@ -816,30 +820,127 @@ function openConstraint(c=null){
         hora_fim:horaFim
       };
 
-      if(x.data_fim<x.data_inicio){
+      if(base.data_fim<base.data_inicio){
         return toast('A data de fim não pode ser anterior à data de início.');
       }
 
       if(
-        x.data_inicio===x.data_fim &&
-        x.hora_inicio &&
-        x.hora_fim &&
-        x.hora_fim<=x.hora_inicio
+        base.data_inicio===base.data_fim &&
+        base.hora_inicio &&
+        base.hora_fim &&
+        base.hora_fim<=base.hora_inicio
       ){
         return toast('A hora de fim tem de ser posterior à hora de início.');
       }
 
-      const r=c
-        ? await supabase.from('constrangimentos').update(x).eq('id',c.id)
-        : await supabase.from('constrangimentos').insert(x);
+      if(c){
+        const r=await supabase
+          .from('constrangimentos')
+          .update({...base,pessoa_id:c.pessoa_id})
+          .eq('id',c.id);
 
-      if(r.error) return toast(r.error.message);
+        if(r.error)return toast(r.error.message);
+
+        closeModal();
+        toast('Constrangimento guardado');
+        await load();
+        return;
+      }
+
+      const selected=[...constraintSelectedPeople];
+      if(!selected.length)return toast('Seleciona pelo menos uma pessoa.');
+
+      const payload=selected.map(pessoa_id=>({
+        ...base,
+        pessoa_id
+      }));
+
+      const r=await supabase
+        .from('constrangimentos')
+        .insert(payload);
+
+      if(r.error)return toast(r.error.message);
 
       closeModal();
-      toast('Constrangimento guardado');
+      toast(`Constrangimento criado para ${selected.length} pessoa(s).`);
       await load();
     }
   );
+
+  if(!c){
+    setupConstraintMultiPeople();
+  }
+}
+
+let constraintSelectedPeople=new Set();
+
+function constraintVisiblePeople(){
+  const q=String($('#constraintPeopleSearch')?.value||'').trim().toLowerCase();
+
+  return S.people.filter(p=>{
+    if(!q)return true;
+    return [
+      p.numero_corpo,
+      p.nome,
+      p.posto,
+      p.ano,
+      p.ramo,
+      p.curso
+    ].some(v=>String(v||'').toLowerCase().includes(q));
+  });
+}
+
+function renderConstraintMultiPeople(){
+  const list=$('#constraintPeopleList');
+  if(!list)return;
+
+  const rows=constraintVisiblePeople();
+
+  list.innerHTML=rows.map(p=>`
+    <label class="multi-person-row">
+      <input
+        type="checkbox"
+        class="constraint-person-check"
+        value="${p.id}"
+        ${constraintSelectedPeople.has(p.id)?'checked':''}>
+      <span>
+        <b>${esc(p.numero_corpo||'—')} · ${esc(p.nome)}</b>
+        <small>${esc(p.ramo)} · ${esc(p.curso)} · ${p.ano||'—'}º ano</small>
+      </span>
+    </label>
+  `).join('');
+
+  $$('.constraint-person-check').forEach(ch=>{
+    ch.onchange=()=>{
+      ch.checked
+        ? constraintSelectedPeople.add(ch.value)
+        : constraintSelectedPeople.delete(ch.value);
+
+      $('#constraintPeopleCount').textContent=
+        `${constraintSelectedPeople.size} selecionada(s)`;
+    };
+  });
+
+  $('#constraintPeopleCount').textContent=
+    `${constraintSelectedPeople.size} selecionada(s)`;
+}
+
+function setupConstraintMultiPeople(){
+  constraintSelectedPeople=new Set();
+
+  $('#constraintPeopleSearch').oninput=renderConstraintMultiPeople;
+
+  $('#constraintSelectVisible').onclick=()=>{
+    constraintVisiblePeople().forEach(p=>constraintSelectedPeople.add(p.id));
+    renderConstraintMultiPeople();
+  };
+
+  $('#constraintClearPeople').onclick=()=>{
+    constraintSelectedPeople.clear();
+    renderConstraintMultiPeople();
+  };
+
+  renderConstraintMultiPeople();
 }
 
 

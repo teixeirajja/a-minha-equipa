@@ -5,7 +5,7 @@ const supabase=createClient(
   'sb_publishable_LR4VwEg_DQLmMhS7C7MZUA_ZTKk4KVl'
 );
 const $=s=>document.querySelector(s), $$=s=>[...document.querySelectorAll(s)];
-let S={people:[],constraints:[],schedules:[],schedulePeople:[],scheduleModels:[],scheduleModelPeople:[],events:[],assigned:[],manualAvailability:[],history:[],availability:[]};
+let S={people:[],constraints:[],schedules:[],schedulePeople:[],scheduleModels:[],scheduleModelPeople:[],events:[],assigned:[],manualAvailability:[],eventCourseTargets:[],history:[],availability:[]};
 let constraintSort={key:'inicio',dir:-1};
 let constraintFilters={pessoa:'',tipo:'',estado:'',inicio:'',fim:'',observacao:''};
 let expandedConstraints=new Set();
@@ -33,7 +33,7 @@ const day=n=>['','Segunda','Terça','Quarta','Quinta','Sexta','Sábado','Domingo
 function toast(x){$('#toast').textContent=x;$('#toast').classList.remove('hidden');setTimeout(()=>$('#toast').classList.add('hidden'),2200)}
 async function sel(t,c='*'){const {data,error}=await supabase.from(t).select(c);if(error)throw error;return data||[]}
 async function load(){
-  const [people,constraints,schedules,sp,scheduleModels,scheduleModelPeople,events,assigned,manualAvailability,history]=await Promise.all([
+  const [people,constraints,schedules,sp,scheduleModels,scheduleModelPeople,events,assigned,manualAvailability,eventCourseTargets,history]=await Promise.all([
     sel('pessoas'),
     sel('constrangimentos'),
     sel('horarios_base'),
@@ -43,6 +43,7 @@ async function load(){
     sel('eventos'),
     sel('evento_empenhados'),
     sel('evento_disponibilidade_manual'),
+    sel('evento_cursos_alvo'),
     supabase.from('historico').select('*').order('alterado_em',{ascending:false}).limit(100).then(r=>{if(r.error)throw r.error;return r.data||[]})
   ]);
   Object.assign(S,{
@@ -55,6 +56,7 @@ async function load(){
     events:events.sort((a,b)=>(a.data+a.hora_inicio).localeCompare(b.data+b.hora_inicio)),
     assigned,
     manualAvailability,
+    eventCourseTargets,
     history
   });
   render();
@@ -201,7 +203,19 @@ function renderEvents(){
     <tr>
       <td>${fmt(e.data)}</td>
       <td>${e.hora_inicio?.slice(0,5)||''}${e.hora_fim?'–'+e.hora_fim.slice(0,5):''}</td>
-      <td>${esc(e.nome)}</td>
+      <td>
+        <b>${esc(e.nome)}</b>
+        <br><small class="muted">${
+          e.alvo_tipo==='CURSOS'
+            ? S.eventCourseTargets
+                .filter(x=>x.evento_id===e.id)
+                .map(x=>`${x.ramo} · ${x.curso}`)
+                .join(', ')
+            : e.alvo_tipo==='ANO'
+              ? `${e.alvo_ano||'—'}º ano`
+              : 'Toda a equipa'
+        }</small>
+      </td>
       <td>${eventStatusBadge(e)}</td>
       <td>${S.assigned.filter(a=>a.evento_id===e.id).length}</td>
       <td>
@@ -1829,19 +1843,139 @@ async function del(t,k,id){if(!confirm('Apagar este registo?'))return;const r=aw
 async function deleteEvent(id){if(!confirm('Apagar este evento?'))return;const r=await supabase.from('eventos').delete().eq('id',id);if(r.error)return toast(r.error.message);await load()}
 
 let W={event:null,availability:[],selected:new Set()};
-function updateScope(){
-  const scope=$('#weScope').value,box=$('#scopeValueBox'),sel=$('#weScopeValue');
-  if(scope==='all'){box.classList.add('hidden');return}
-  box.classList.remove('hidden');
-  const vals=scope==='course'?[...new Set(S.people.map(p=>p.curso))].sort():[...new Set(S.people.map(p=>p.ano).filter(Boolean))].sort((a,b)=>a-b);
-  sel.innerHTML=vals.map(v=>`<option value="${esc(v)}">${esc(v)}${scope==='year'?'º':''}</option>`).join('');
+function courseTargetKey(p){
+  return `${p.ramo||''}|${p.curso||''}`;
 }
+
+function availableCourseTargets(){
+  const map=new Map();
+
+  S.people
+    .filter(p=>p.ramo&&p.curso)
+    .forEach(p=>{
+      const key=courseTargetKey(p);
+      if(!map.has(key)){
+        map.set(key,{
+          key,
+          ramo:p.ramo,
+          curso:p.curso,
+          label:`${p.ramo} · ${p.curso}`
+        });
+      }
+    });
+
+  return [...map.values()].sort((a,b)=>a.label.localeCompare(b.label,'pt'));
+}
+
+function renderCourseTargets(){
+  const options=availableCourseTargets();
+
+  $('#courseTargetList').innerHTML=options.map(x=>`
+    <label class="course-target-option">
+      <input
+        type="checkbox"
+        class="course-target-check"
+        value="${esc(x.key)}"
+        ${W.targetCourses?.has(x.key)?'checked':''}>
+      <span>${esc(x.label)}</span>
+    </label>
+  `).join('');
+
+  $$('.course-target-check').forEach(ch=>ch.onchange=()=>{
+    if(!W.targetCourses)W.targetCourses=new Set();
+
+    ch.checked
+      ? W.targetCourses.add(ch.value)
+      : W.targetCourses.delete(ch.value);
+
+    pruneSelectionToScope();
+
+    if(W.availability.length){
+      renderWizardPeople();
+    }
+  });
+}
+
+function updateScope(){
+  const scope=$('#weScope').value;
+  const box=$('#scopeValueBox');
+  const courseBox=$('#courseTargetBox');
+  const yearBox=$('#yearTargetBox');
+
+  courseBox.classList.add('hidden');
+  yearBox.classList.add('hidden');
+
+  if(scope==='all'){
+    box.classList.add('hidden');
+    pruneSelectionToScope();
+    return;
+  }
+
+  box.classList.remove('hidden');
+
+  if(scope==='course'){
+    courseBox.classList.remove('hidden');
+    renderCourseTargets();
+  }
+
+  if(scope==='year'){
+    yearBox.classList.remove('hidden');
+
+    const vals=[...new Set(
+      S.people.map(p=>p.ano).filter(Boolean)
+    )].sort((a,b)=>a-b);
+
+    $('#weScopeValue').innerHTML=vals
+      .map(v=>`<option value="${esc(v)}">${esc(v)}º</option>`)
+      .join('');
+
+    if(W.targetYear){
+      $('#weScopeValue').value=String(W.targetYear);
+    }
+
+    W.targetYear=Number($('#weScopeValue').value)||null;
+  }
+
+  pruneSelectionToScope();
+}
+
 function scopePeople(){
-  const scope=$('#weScope').value,v=$('#weScopeValue').value;
-  if(scope==='course')return S.people.filter(p=>p.curso===v);
-  if(scope==='year')return S.people.filter(p=>String(p.ano)===String(v));
+  const scope=$('#weScope').value;
+
+  if(scope==='course'){
+    const targets=W.targetCourses||new Set();
+
+    return S.people.filter(p=>
+      targets.has(courseTargetKey(p))
+    );
+  }
+
+  if(scope==='year'){
+    const year=Number($('#weScopeValue').value||W.targetYear);
+    return S.people.filter(p=>Number(p.ano)===year);
+  }
+
   return S.people;
 }
+
+function pruneSelectionToScope(){
+  if(!W?.selected)return;
+
+  const allowed=new Set(scopePeople().map(p=>p.id));
+
+  W.selected=new Set(
+    [...W.selected].filter(id=>allowed.has(id))
+  );
+
+  participantTempSelection=new Set(
+    [...participantTempSelection].filter(id=>allowed.has(id))
+  );
+
+  if($('#weCount')){
+    $('#weCount').textContent=`${W.selected.size} empenhado(s)`;
+  }
+}
+
 async function wizardCheck(){
   const d=$('#weDate').value,t=$('#weStart').value;if(!d||!t)return toast('Escolhe data e hora.');
   try{W.availability=await checkAvailability(d,t,W.event?.id||null);renderWizardPeople()}catch(e){toast(e.message)}
@@ -1929,7 +2063,10 @@ function participantRows(){
   const state=$('#participantsStateFilter')?.value||'';
   const group=$('#participantsGroupFilter')?.value||'';
 
+  const allowed=new Set(scopePeople().map(p=>p.id));
+
   return S.people.filter(p=>{
+    if(!allowed.has(p.id))return false;
     if(group==='equipa' && p.integra_equipa===false)return false;
     if(group==='externos' && p.integra_equipa!==false)return false;
 
@@ -2093,7 +2230,20 @@ async function openParticipantsDialog(){
 }
 
 async function openEventWizard(e=null){
-  W={event:e,availability:[],selected:new Set(e?S.assigned.filter(a=>a.evento_id===e.id).map(a=>a.pessoa_id):[])};
+  W={
+    event:e,
+    availability:[],
+    selected:new Set(e?S.assigned.filter(a=>a.evento_id===e.id).map(a=>a.pessoa_id):[]),
+    targetCourses:new Set(),
+    targetYear:e?.alvo_ano||null
+  };
+
+  if(e?.id){
+    S.eventCourseTargets
+      .filter(x=>x.evento_id===e.id)
+      .forEach(x=>W.targetCourses.add(`${x.ramo}|${x.curso}`));
+  }
+
   participantManualOverrides=new Map();
   if(e?.id){
     S.manualAvailability
@@ -2103,15 +2253,53 @@ async function openEventWizard(e=null){
         motivo:x.motivo||''
       }));
   }
-  $('#wizardTitle').textContent=e?'Editar evento':'Novo evento';$('#weName').value=e?.nome||'';$('#weDate').value=e?.data||'';$('#weStart').value=e?.hora_inicio?.slice(0,5)||'';$('#weEnd').value=e?.hora_fim?.slice(0,5)||'';$('#weStatus').value=e?.estado_manual||'';$('#weNote').value=e?.observacao||'';$('#weScope').value='all';updateScope();$('#wePeople').innerHTML='<p class="muted">Carrega em “Ver disponibilidade”.</p>';$('#weCount').textContent=`${W.selected.size} empenhado(s)`;$('#eventWizard').showModal();
+  $('#wizardTitle').textContent=e?'Editar evento':'Novo evento';$('#weName').value=e?.nome||'';$('#weDate').value=e?.data||'';$('#weStart').value=e?.hora_inicio?.slice(0,5)||'';$('#weEnd').value=e?.hora_fim?.slice(0,5)||'';$('#weStatus').value=e?.estado_manual||'';$('#weNote').value=e?.observacao||'';
+  $('#weScope').value=e?.alvo_tipo==='CURSOS'?'course':e?.alvo_tipo==='ANO'?'year':'all';
+  updateScope();
+  $('#wePeople').innerHTML='<p class="muted">Carrega em “Ver disponibilidade”.</p>';$('#weCount').textContent=`${W.selected.size} empenhado(s)`;$('#eventWizard').showModal();
   if(e?.data&&e?.hora_inicio)await wizardCheck();
 }
 async function saveWizard(){
-  const x={nome:$('#weName').value.trim(),data:$('#weDate').value,hora_inicio:$('#weStart').value,hora_fim:$('#weEnd').value||null,estado_manual:$('#weStatus').value||null,observacao:$('#weNote').value.trim()||null,alvo_todos:false};
+  const scope=$('#weScope').value;
+
+  if(scope==='course' && (!W.targetCourses || W.targetCourses.size===0)){
+    return toast('Seleciona pelo menos um curso para este evento.');
+  }
+
+  const x={
+    nome:$('#weName').value.trim(),
+    data:$('#weDate').value,
+    hora_inicio:$('#weStart').value,
+    hora_fim:$('#weEnd').value||null,
+    estado_manual:$('#weStatus').value||null,
+    observacao:$('#weNote').value.trim()||null,
+    alvo_todos:scope==='all',
+    alvo_tipo:scope==='course'?'CURSOS':scope==='year'?'ANO':'TODOS',
+    alvo_ano:scope==='year'?Number($('#weScopeValue').value):null
+  };
   if(!x.nome||!x.data||!x.hora_inicio)return toast('Preenche nome, data e hora.');
   let id=W.event?.id;
   if(id){const r=await supabase.from('eventos').update(x).eq('id',id);if(r.error)return toast(r.error.message)}
   else{const r=await supabase.from('eventos').insert(x).select().single();if(r.error)return toast(r.error.message);id=r.data.id}
+  const ctDel=await supabase.from('evento_cursos_alvo').delete().eq('evento_id',id);
+  if(ctDel.error)return toast(ctDel.error.message);
+
+  if(scope==='course' && W.targetCourses.size){
+    const targets=[...W.targetCourses].map(key=>{
+      const [ramo,...rest]=key.split('|');
+      return {
+        evento_id:id,
+        ramo,
+        curso:rest.join('|')
+      };
+    });
+
+    const ctIns=await supabase.from('evento_cursos_alvo').insert(targets);
+    if(ctIns.error)return toast(ctIns.error.message);
+  }
+
+  pruneSelectionToScope();
+
   const d=await supabase.from('evento_empenhados').delete().eq('evento_id',id);if(d.error)return toast(d.error.message);
   if(W.selected.size){const r=await supabase.from('evento_empenhados').insert([...W.selected].map(pessoa_id=>({evento_id:id,pessoa_id})));if(r.error)return toast(r.error.message)}
   try{
@@ -2149,7 +2337,18 @@ $('#participantsApply').onclick=()=>{
   renderWizardPeople();
 };
 
-$('#weCheck').onclick=wizardCheck;$('#weScope').onchange=()=>{updateScope();if(W.availability.length)renderWizardPeople()};$('#weScopeValue').onchange=()=>{if(W.availability.length)renderWizardPeople()};
+$('#weCheck').onclick=wizardCheck;
+
+$('#weScope').onchange=()=>{
+  updateScope();
+  if(W.availability.length)renderWizardPeople();
+};
+
+$('#weScopeValue').onchange=()=>{
+  W.targetYear=Number($('#weScopeValue').value)||null;
+  pruneSelectionToScope();
+  if(W.availability.length)renderWizardPeople();
+};
 
 $('#checkAvailBtn').onclick=renderAvailability;
 $('#availFilter').onchange=filterAvailability;

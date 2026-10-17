@@ -5,7 +5,7 @@ const supabase=createClient(
   'sb_publishable_LR4VwEg_DQLmMhS7C7MZUA_ZTKk4KVl'
 );
 const $=s=>document.querySelector(s), $$=s=>[...document.querySelectorAll(s)];
-let S={people:[],constraints:[],schedules:[],schedulePeople:[],events:[],assigned:[],history:[],availability:[]};
+let S={people:[],constraints:[],schedules:[],schedulePeople:[],scheduleModels:[],scheduleModelPeople:[],events:[],assigned:[],history:[],availability:[]};
 let availSort={key:'nome',dir:1};
 let availColumnFilters={
   numero_corpo:'',
@@ -16,7 +16,7 @@ let availColumnFilters={
   motivo:'',
   alerta:''
 };
-const titles={inicio:['Resumo','Visão geral da equipa.'],consulta:['Consultar disponibilidade','Disponíveis e indisponíveis por dia e hora.'],eventos:['Eventos','Criar eventos e empenhar pessoal.'],pessoas:['Equipa','Gerir os elementos da equipa.'],constrangimentos:['Constrangimentos','ERASMUS e restantes registos.'],horarios:['Horários','Blocos de aula e associações.'],historico:['Histórico','Alterações registadas na base.']};
+const titles={inicio:['Resumo','Visão geral da equipa.'],consulta:['Consultar disponibilidade','Disponíveis e indisponíveis por dia e hora.'],eventos:['Eventos','Criar eventos e empenhar pessoal.'],pessoas:['Equipa','Gerir os elementos da equipa.'],constrangimentos:['Constrangimentos','ERASMUS e restantes registos.'],horarios:['Horários','Horários semanais completos e associações.'],historico:['Histórico','Alterações registadas na base.']};
 const esc=(v='')=>String(v).replace(/[&<>"']/g,m=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#039;'}[m]));
 const fmt=d=>{if(!d)return'—';const [y,m,x]=String(d).slice(0,10).split('-');return`${x}/${m}/${y}`};
 const today=()=>new Date().toISOString().slice(0,10);
@@ -25,10 +25,28 @@ const day=n=>['','Segunda','Terça','Quarta','Quinta','Sexta','Sábado','Domingo
 function toast(x){$('#toast').textContent=x;$('#toast').classList.remove('hidden');setTimeout(()=>$('#toast').classList.add('hidden'),2200)}
 async function sel(t,c='*'){const {data,error}=await supabase.from(t).select(c);if(error)throw error;return data||[]}
 async function load(){
-  const [people,constraints,schedules,sp,events,assigned,history]=await Promise.all([
-    sel('pessoas'),sel('constrangimentos'),sel('horarios_base'),sel('horario_pessoas'),sel('eventos'),sel('evento_empenhados'),supabase.from('historico').select('*').order('alterado_em',{ascending:false}).limit(100).then(r=>{if(r.error)throw r.error;return r.data||[]})
+  const [people,constraints,schedules,sp,scheduleModels,scheduleModelPeople,events,assigned,history]=await Promise.all([
+    sel('pessoas'),
+    sel('constrangimentos'),
+    sel('horarios_base'),
+    sel('horario_pessoas'),
+    sel('horario_modelos'),
+    sel('horario_modelo_pessoas'),
+    sel('eventos'),
+    sel('evento_empenhados'),
+    supabase.from('historico').select('*').order('alterado_em',{ascending:false}).limit(100).then(r=>{if(r.error)throw r.error;return r.data||[]})
   ]);
-  Object.assign(S,{people:people.sort((a,b)=>a.nome.localeCompare(b.nome)),constraints,schedules, schedulePeople:sp,events:events.sort((a,b)=>(a.data+a.hora_inicio).localeCompare(b.data+b.hora_inicio)),assigned,history});
+  Object.assign(S,{
+    people:people.sort((a,b)=>a.nome.localeCompare(b.nome)),
+    constraints,
+    schedules,
+    schedulePeople:sp,
+    scheduleModels:scheduleModels.sort((a,b)=>a.nome.localeCompare(b.nome,'pt')),
+    scheduleModelPeople,
+    events:events.sort((a,b)=>(a.data+a.hora_inicio).localeCompare(b.data+b.hora_inicio)),
+    assigned,
+    history
+  });
   render();
 }
 function render(){renderHome();renderPeople();renderConstraints();renderSchedules();renderEvents();renderHistory()}
@@ -266,8 +284,71 @@ function renderConstraints(){
   $$('.ec').forEach(b=>b.onclick=()=>openConstraint(S.constraints.find(c=>c.id===b.dataset.id)));$$('.dc').forEach(b=>b.onclick=()=>del('constrangimentos','id',b.dataset.id));
 }
 function renderSchedules(){
-  $('#scheduleList').innerHTML=S.schedules.map(h=>`<div class="card"><div><h4>${esc(h.nome)}</h4><p>${day(h.dia_semana)} · ${h.hora_inicio.slice(0,5)}–${h.hora_fim.slice(0,5)} · ${esc(h.tipo_aula)}</p><p>${fmt(h.data_inicio)} → ${fmt(h.data_fim)} · ${S.schedulePeople.filter(x=>x.horario_id===h.id).length} pessoa(s)</p></div><div class="row-actions"><button class="icon eh" data-id="${h.id}">✎</button><button class="icon dh" data-id="${h.id}">🗑</button></div></div>`).join('')||'<div class="summary">Sem horários.</div>';
-  $$('.eh').forEach(b=>b.onclick=()=>openSchedule(S.schedules.find(x=>x.id===b.dataset.id)));$$('.dh').forEach(b=>b.onclick=()=>del('horarios_base','id',b.dataset.id));
+  const models=S.scheduleModels;
+
+  const modelHtml=models.map(m=>{
+    const blocks=S.schedules
+      .filter(h=>h.horario_modelo_id===m.id)
+      .sort((a,b)=>a.dia_semana-b.dia_semana||a.hora_inicio.localeCompare(b.hora_inicio));
+
+    const peopleCount=S.scheduleModelPeople
+      .filter(x=>x.horario_modelo_id===m.id).length;
+
+    const dayCounts=new Map();
+    blocks.forEach(b=>dayCounts.set(b.dia_semana,(dayCounts.get(b.dia_semana)||0)+1));
+
+    return `<div class="schedule-model-card">
+      <div class="schedule-model-top">
+        <div>
+          <h4>${esc(m.nome)}</h4>
+          <div class="schedule-model-meta">
+            ${fmt(m.data_inicio)} → ${fmt(m.data_fim)}
+            · ${blocks.length} bloco(s)
+            · ${peopleCount} pessoa(s)
+          </div>
+          <div class="schedule-day-chips">
+            ${[...dayCounts.entries()].map(([d,n])=>`<span class="schedule-chip">${day(d)} · ${n}</span>`).join('')}
+          </div>
+        </div>
+        <div class="row-actions">
+          <button class="icon edit-model-schedule" data-id="${m.id}" title="Editar">✎</button>
+          <button class="icon delete-model-schedule" data-id="${m.id}" title="Apagar">🗑</button>
+        </div>
+      </div>
+    </div>`;
+  }).join('');
+
+  const legacy=S.schedules.filter(h=>!h.horario_modelo_id);
+  const legacyHtml=legacy.length
+    ? `<div class="legacy-schedules">
+        <div class="summary"><b>Blocos antigos</b> — continuam válidos, mas os novos horários devem ser criados pelo editor completo.</div>
+        ${legacy.map(h=>`<div class="card">
+          <div>
+            <h4>${esc(h.nome)}</h4>
+            <p>${day(h.dia_semana)} · ${h.hora_inicio.slice(0,5)}–${h.hora_fim.slice(0,5)} · ${esc(h.tipo_aula)}</p>
+            <p>${fmt(h.data_inicio)} → ${fmt(h.data_fim)} · ${S.schedulePeople.filter(x=>x.horario_id===h.id).length} pessoa(s)</p>
+          </div>
+          <div class="row-actions">
+            <button class="icon edit-legacy-schedule" data-id="${h.id}">✎</button>
+            <button class="icon delete-legacy-schedule" data-id="${h.id}">🗑</button>
+          </div>
+        </div>`).join('')}
+      </div>`
+    : '';
+
+  $('#scheduleList').innerHTML=
+    (modelHtml||'<div class="summary">Ainda não existem horários completos.</div>')+
+    legacyHtml;
+
+  $$('.edit-model-schedule').forEach(b=>b.onclick=()=>openScheduleWizard(
+    S.scheduleModels.find(x=>x.id===b.dataset.id)
+  ));
+  $$('.delete-model-schedule').forEach(b=>b.onclick=()=>deleteScheduleModel(b.dataset.id));
+
+  $$('.edit-legacy-schedule').forEach(b=>b.onclick=()=>openLegacySchedule(
+    S.schedules.find(x=>x.id===b.dataset.id)
+  ));
+  $$('.delete-legacy-schedule').forEach(b=>b.onclick=()=>del('horarios_base','id',b.dataset.id));
 }
 function renderEvents(){
   $('#eventsBody').innerHTML=S.events.map(e=>`
@@ -670,7 +751,380 @@ function openConstraint(c=null){
     }
   );
 }
-function openSchedule(h=null){const ids=h?S.schedulePeople.filter(x=>x.horario_id===h.id).map(x=>x.pessoa_id):[];modal(h?'Editar horário':'Novo horário',`<div class="grid2"><label class="full">Nome<input name="nome" required value="${esc(h?.nome||'')}"></label><label>Dia<select name="dia_semana">${[1,2,3,4,5,6,7].map(n=>`<option value="${n}" ${h?.dia_semana===n?'selected':''}>${day(n)}</option>`).join('')}</select></label><label>Tipo<select name="tipo_aula">${['TEORICA','PRATICA','OUTRA'].map(v=>`<option ${h?.tipo_aula===v?'selected':''}>${v}</option>`).join('')}</select></label><label>Início<input type="time" name="hora_inicio" required value="${h?.hora_inicio?.slice(0,5)||''}"></label><label>Fim<input type="time" name="hora_fim" required value="${h?.hora_fim?.slice(0,5)||''}"></label><label>Data início<input type="date" name="data_inicio" required value="${h?.data_inicio||''}"></label><label>Data fim<input type="date" name="data_fim" required value="${h?.data_fim||''}"></label><label class="full">Disciplina<input name="disciplina" value="${esc(h?.disciplina||'')}"></label><label class="full">Pessoas${peopleChecks(ids)}</label></div>`,async f=>{const persons=f.getAll('persons'),x={nome:f.get('nome'),dia_semana:Number(f.get('dia_semana')),tipo_aula:f.get('tipo_aula'),hora_inicio:f.get('hora_inicio'),hora_fim:f.get('hora_fim'),data_inicio:f.get('data_inicio'),data_fim:f.get('data_fim'),disciplina:f.get('disciplina')||null};let id=h?.id;if(h){const r=await supabase.from('horarios_base').update(x).eq('id',id);if(r.error)return toast(r.error.message)}else{const r=await supabase.from('horarios_base').insert(x).select().single();if(r.error)return toast(r.error.message);id=r.data.id}await supabase.from('horario_pessoas').delete().eq('horario_id',id);if(persons.length){const r=await supabase.from('horario_pessoas').insert(persons.map(pessoa_id=>({horario_id:id,pessoa_id})));if(r.error)return toast(r.error.message)}closeModal();await load()})}
+
+let SW={
+  model:null,
+  blocks:[],
+  people:new Set()
+};
+
+const minutesFromTime=t=>{
+  const [h,m]=String(t||'00:00').split(':').map(Number);
+  return h*60+m;
+};
+
+const normalizeTime=t=>{
+  const m=String(t||'').match(/(\d{1,2})[:.](\d{2})/);
+  if(!m)return '';
+  return `${String(Number(m[1])).padStart(2,'0')}:${m[2]}`;
+};
+
+function parseDayValue(v){
+  const s=String(v||'').trim().toLowerCase()
+    .normalize('NFD').replace(/[\u0300-\u036f]/g,'');
+  const map={
+    '1':1,'segunda':1,'segunda-feira':1,'seg':1,
+    '2':2,'terca':2,'terca-feira':2,'ter':2,
+    '3':3,'quarta':3,'quarta-feira':3,'qua':3,
+    '4':4,'quinta':4,'quinta-feira':4,'qui':4,
+    '5':5,'sexta':5,'sexta-feira':5,'sex':5,
+    '6':6,'sabado':6,'sab':6,
+    '7':7,'domingo':7,'dom':7
+  };
+  return map[s]||null;
+}
+
+function normalizeLessonType(v){
+  const s=String(v||'').trim().toUpperCase();
+  if(['P','PRATICA','PRÁTICA','TP','PL'].includes(s))return 'PRATICA';
+  if(['T','TEORICA','TEÓRICA'].includes(s))return 'TEORICA';
+  return 'OUTRA';
+}
+
+function openScheduleWizard(model=null){
+  SW.model=model;
+  SW.blocks=model
+    ? S.schedules
+        .filter(h=>h.horario_modelo_id===model.id)
+        .map(h=>({
+          id:h.id,
+          dia_semana:Number(h.dia_semana),
+          hora_inicio:h.hora_inicio.slice(0,5),
+          hora_fim:h.hora_fim.slice(0,5),
+          disciplina:h.disciplina||'',
+          tipo_aula:h.tipo_aula||'OUTRA'
+        }))
+    : [];
+
+  SW.people=new Set(
+    model
+      ? S.scheduleModelPeople
+          .filter(x=>x.horario_modelo_id===model.id)
+          .map(x=>x.pessoa_id)
+      : []
+  );
+
+  $('#scheduleWizardTitle').textContent=model?'Editar horário completo':'Novo horário completo';
+  $('#swName').value=model?.nome||'';
+  $('#swStartDate').value=model?.data_inicio||'';
+  $('#swEndDate').value=model?.data_fim||'';
+  $('#swNote').value=model?.observacao||'';
+
+  $('#swDay').value='1';
+  $('#swBlockStart').value='';
+  $('#swBlockEnd').value='';
+  $('#swSubject').value='';
+  $('#swType').value='TEORICA';
+  $('#swBulk').value='';
+  $('#swPeopleSearch').value='';
+
+  renderScheduleBlocks();
+  renderSchedulePeople();
+  $('#scheduleWizard').showModal();
+}
+
+function closeScheduleWizard(){
+  $('#scheduleWizard').close();
+}
+
+function renderScheduleBlocks(){
+  SW.blocks.sort((a,b)=>
+    a.dia_semana-b.dia_semana ||
+    a.hora_inicio.localeCompare(b.hora_inicio)
+  );
+
+  $('#swBlockCount').textContent=`${SW.blocks.length} bloco(s)`;
+
+  $('#swBlocksBody').innerHTML=SW.blocks.map((b,i)=>`
+    <tr>
+      <td>${day(b.dia_semana)}</td>
+      <td>${esc(b.hora_inicio)}</td>
+      <td>${esc(b.hora_fim)}</td>
+      <td><b>${esc(b.disciplina||'—')}</b></td>
+      <td>${esc(b.tipo_aula)}</td>
+      <td><button type="button" class="icon remove-schedule-block" data-index="${i}" title="Remover">×</button></td>
+    </tr>
+  `).join('') || '<tr><td colspan="6" class="muted">Ainda não adicionaste blocos.</td></tr>';
+
+  $$('.remove-schedule-block').forEach(b=>b.onclick=()=>{
+    SW.blocks.splice(Number(b.dataset.index),1);
+    renderScheduleBlocks();
+  });
+
+  renderWeekGrid();
+}
+
+function addScheduleBlock(block){
+  if(!block.dia_semana)return toast('Escolhe um dia válido.');
+  if(!block.hora_inicio||!block.hora_fim)return toast('Indica início e fim.');
+  if(minutesFromTime(block.hora_fim)<=minutesFromTime(block.hora_inicio)){
+    return toast('A hora de fim tem de ser posterior à de início.');
+  }
+
+  SW.blocks.push({
+    dia_semana:Number(block.dia_semana),
+    hora_inicio:block.hora_inicio,
+    hora_fim:block.hora_fim,
+    disciplina:block.disciplina||'',
+    tipo_aula:block.tipo_aula||'OUTRA'
+  });
+
+  renderScheduleBlocks();
+}
+
+function renderWeekGrid(){
+  const startMin=8*60;
+  const endMin=20*60;
+  const slot=30;
+  const slots=(endMin-startMin)/slot;
+  const days=['','Seg','Ter','Qua','Qui','Sex','Sáb','Dom'];
+
+  let html=`<div class="week-head" style="grid-column:1;grid-row:1"></div>`;
+
+  for(let d=1;d<=7;d++){
+    html+=`<div class="week-head" style="grid-column:${d+1};grid-row:1">${days[d]}</div>`;
+  }
+
+  for(let i=0;i<slots;i++){
+    const mins=startMin+i*slot;
+    const hh=String(Math.floor(mins/60)).padStart(2,'0');
+    const mm=String(mins%60).padStart(2,'0');
+
+    html+=`<div class="week-time" style="grid-column:1;grid-row:${i+2}">${hh}:${mm}</div>`;
+
+    for(let d=1;d<=7;d++){
+      html+=`<div class="week-cell" style="grid-column:${d+1};grid-row:${i+2}"></div>`;
+    }
+  }
+
+  SW.blocks.forEach(b=>{
+    const s=minutesFromTime(b.hora_inicio);
+    const e=minutesFromTime(b.hora_fim);
+
+    if(s<startMin||e>endMin)return;
+
+    const rowStart=Math.floor((s-startMin)/slot)+2;
+    const span=Math.max(1,Math.ceil((e-s)/slot));
+    const cls=b.tipo_aula==='PRATICA'?'pratica':b.tipo_aula==='OUTRA'?'outra':'';
+
+    html+=`<div class="week-block ${cls}"
+      style="grid-column:${Number(b.dia_semana)+1};grid-row:${rowStart}/span ${span}">
+      <b>${esc(b.disciplina||'Aula')}</b>
+      <small>${esc(b.hora_inicio)}–${esc(b.hora_fim)}</small>
+    </div>`;
+  });
+
+  $('#swWeekGrid').innerHTML=html;
+}
+
+function visibleSchedulePeople(){
+  const q=$('#swPeopleSearch').value.trim().toLowerCase();
+  return S.people.filter(p=>{
+    if(!q)return true;
+    return [
+      p.numero_corpo,p.nome,p.posto,p.ano,p.ramo,p.curso
+    ].some(v=>String(v||'').toLowerCase().includes(q));
+  });
+}
+
+function renderSchedulePeople(){
+  const rows=visibleSchedulePeople();
+
+  $('#swPeopleCount').textContent=`${SW.people.size} selecionada(s)`;
+
+  $('#swPeople').innerHTML=rows.map(p=>`
+    <label class="schedule-person">
+      <input type="checkbox" class="sw-person-check" value="${p.id}" ${SW.people.has(p.id)?'checked':''}>
+      <span>
+        <b>${esc(p.numero_corpo||'—')} · ${esc(p.nome)}</b>
+        <small>${esc(p.ramo)} · ${esc(p.curso)} · ${p.ano||'—'}º ano</small>
+      </span>
+    </label>
+  `).join('');
+
+  $$('.sw-person-check').forEach(c=>c.onchange=()=>{
+    c.checked?SW.people.add(c.value):SW.people.delete(c.value);
+    $('#swPeopleCount').textContent=`${SW.people.size} selecionada(s)`;
+  });
+}
+
+function addBulkScheduleBlocks(){
+  const text=$('#swBulk').value.trim();
+  if(!text)return toast('Cola primeiro as linhas.');
+
+  const lines=text.split(/\r?\n/).map(x=>x.trim()).filter(Boolean);
+  let added=0;
+  let invalid=0;
+
+  for(const line of lines){
+    const cols=line.includes('\t')
+      ? line.split('\t')
+      : line.split(';');
+
+    if(cols.length<4){
+      invalid++;
+      continue;
+    }
+
+    const dia=parseDayValue(cols[0]);
+    const inicio=normalizeTime(cols[1]);
+    const fim=normalizeTime(cols[2]);
+    const disciplina=String(cols[3]||'').trim();
+    const tipo=normalizeLessonType(cols[4]||'OUTRA');
+
+    if(!dia||!inicio||!fim||minutesFromTime(fim)<=minutesFromTime(inicio)){
+      invalid++;
+      continue;
+    }
+
+    SW.blocks.push({
+      dia_semana:dia,
+      hora_inicio:inicio,
+      hora_fim:fim,
+      disciplina,
+      tipo_aula:tipo
+    });
+    added++;
+  }
+
+  renderScheduleBlocks();
+  $('#swBulk').value='';
+
+  toast(
+    invalid
+      ? `${added} bloco(s) adicionados · ${invalid} linha(s) ignoradas`
+      : `${added} bloco(s) adicionados`
+  );
+}
+
+async function saveScheduleWizard(){
+  const nome=$('#swName').value.trim();
+  const dataInicio=$('#swStartDate').value;
+  const dataFim=$('#swEndDate').value;
+  const observacao=$('#swNote').value.trim()||null;
+
+  if(!nome)return toast('Dá um nome ao horário.');
+  if(!dataInicio||!dataFim)return toast('Indica as datas de validade.');
+  if(dataFim<dataInicio)return toast('A data de fim não pode ser anterior à data de início.');
+  if(!SW.blocks.length)return toast('Adiciona pelo menos um bloco.');
+
+  $('#scheduleWizardSave').disabled=true;
+
+  try{
+    let modelId=SW.model?.id;
+
+    if(modelId){
+      const {error}=await supabase
+        .from('horario_modelos')
+        .update({
+          nome,
+          data_inicio:dataInicio,
+          data_fim:dataFim,
+          observacao,
+          atualizado_em:new Date().toISOString()
+        })
+        .eq('id',modelId);
+
+      if(error)throw error;
+    }else{
+      const {data,error}=await supabase
+        .from('horario_modelos')
+        .insert({
+          nome,
+          data_inicio:dataInicio,
+          data_fim:dataFim,
+          observacao
+        })
+        .select()
+        .single();
+
+      if(error)throw error;
+      modelId=data.id;
+    }
+
+    // Pessoas: associação única ao horário completo
+    {
+      const {error}=await supabase
+        .from('horario_modelo_pessoas')
+        .delete()
+        .eq('horario_modelo_id',modelId);
+      if(error)throw error;
+
+      if(SW.people.size){
+        const {error:insertPeopleError}=await supabase
+          .from('horario_modelo_pessoas')
+          .insert([...SW.people].map(pessoa_id=>({
+            horario_modelo_id:modelId,
+            pessoa_id
+          })));
+        if(insertPeopleError)throw insertPeopleError;
+      }
+    }
+
+    // Blocos: todos são guardados em conjunto
+    {
+      const {error}=await supabase
+        .from('horarios_base')
+        .delete()
+        .eq('horario_modelo_id',modelId);
+      if(error)throw error;
+
+      const payload=SW.blocks.map(b=>({
+        horario_modelo_id:modelId,
+        nome,
+        dia_semana:Number(b.dia_semana),
+        tipo_aula:b.tipo_aula,
+        hora_inicio:b.hora_inicio,
+        hora_fim:b.hora_fim,
+        data_inicio:dataInicio,
+        data_fim:dataFim,
+        disciplina:b.disciplina||null
+      }));
+
+      const {error:insertBlocksError}=await supabase
+        .from('horarios_base')
+        .insert(payload);
+      if(insertBlocksError)throw insertBlocksError;
+    }
+
+    closeScheduleWizard();
+    toast('Horário completo guardado.');
+    await load();
+  }catch(e){
+    toast(e.message||'Erro ao guardar o horário.');
+  }finally{
+    $('#scheduleWizardSave').disabled=false;
+  }
+}
+
+async function deleteScheduleModel(id){
+  const m=S.scheduleModels.find(x=>x.id===id);
+  if(!m)return;
+
+  if(!confirm(`Apagar o horário completo "${m.nome}" e todos os seus blocos?`))return;
+
+  const {error}=await supabase
+    .from('horario_modelos')
+    .delete()
+    .eq('id',id);
+
+  if(error)return toast(error.message);
+
+  toast('Horário apagado.');
+  await load();
+}
+
+function openLegacySchedule(h=null){const ids=h?S.schedulePeople.filter(x=>x.horario_id===h.id).map(x=>x.pessoa_id):[];modal(h?'Editar horário':'Novo horário',`<div class="grid2"><label class="full">Nome<input name="nome" required value="${esc(h?.nome||'')}"></label><label>Dia<select name="dia_semana">${[1,2,3,4,5,6,7].map(n=>`<option value="${n}" ${h?.dia_semana===n?'selected':''}>${day(n)}</option>`).join('')}</select></label><label>Tipo<select name="tipo_aula">${['TEORICA','PRATICA','OUTRA'].map(v=>`<option ${h?.tipo_aula===v?'selected':''}>${v}</option>`).join('')}</select></label><label>Início<input type="time" name="hora_inicio" required value="${h?.hora_inicio?.slice(0,5)||''}"></label><label>Fim<input type="time" name="hora_fim" required value="${h?.hora_fim?.slice(0,5)||''}"></label><label>Data início<input type="date" name="data_inicio" required value="${h?.data_inicio||''}"></label><label>Data fim<input type="date" name="data_fim" required value="${h?.data_fim||''}"></label><label class="full">Disciplina<input name="disciplina" value="${esc(h?.disciplina||'')}"></label><label class="full">Pessoas${peopleChecks(ids)}</label></div>`,async f=>{const persons=f.getAll('persons'),x={nome:f.get('nome'),dia_semana:Number(f.get('dia_semana')),tipo_aula:f.get('tipo_aula'),hora_inicio:f.get('hora_inicio'),hora_fim:f.get('hora_fim'),data_inicio:f.get('data_inicio'),data_fim:f.get('data_fim'),disciplina:f.get('disciplina')||null};let id=h?.id;if(h){const r=await supabase.from('horarios_base').update(x).eq('id',id);if(r.error)return toast(r.error.message)}else{const r=await supabase.from('horarios_base').insert(x).select().single();if(r.error)return toast(r.error.message);id=r.data.id}await supabase.from('horario_pessoas').delete().eq('horario_id',id);if(persons.length){const r=await supabase.from('horario_pessoas').insert(persons.map(pessoa_id=>({horario_id:id,pessoa_id})));if(r.error)return toast(r.error.message)}closeModal();await load()})}
 async function del(t,k,id){if(!confirm('Apagar este registo?'))return;const r=await supabase.from(t).delete().eq(k,id);if(r.error)return toast(r.error.message);await load()}
 async function deleteEvent(id){if(!confirm('Apagar este evento?'))return;const r=await supabase.from('eventos').delete().eq('id',id);if(r.error)return toast(r.error.message);await load()}
 
@@ -742,7 +1196,36 @@ $('#resetAvailFiltersBtn').onclick=()=>{
   $$('#availTable [data-colfilter]').forEach(el=>el.value='');
   availSort={key:'nome',dir:1};
   filterAvailability();
-};$('#personSearch').oninput=renderPeople;$('#newEventBtn').onclick=()=>openEventWizard();$('#newPersonBtn').onclick=()=>openPerson();$('#newConstraintBtn').onclick=()=>openConstraint();$('#newScheduleBtn').onclick=()=>openSchedule();$('#refreshBtn').onclick=load;$$('nav button').forEach(b=>b.onclick=()=>page(b.dataset.page));
+};$('#personSearch').oninput=renderPeople;$('#newEventBtn').onclick=()=>openEventWizard();$('#newPersonBtn').onclick=()=>openPerson();$('#newConstraintBtn').onclick=()=>openConstraint();$('#newScheduleBtn').onclick=()=>openScheduleWizard();$('#scheduleWizardClose').onclick=closeScheduleWizard;
+$('#scheduleWizardCancel').onclick=closeScheduleWizard;
+$('#scheduleWizardSave').onclick=saveScheduleWizard;
+$('#swPeopleSearch').oninput=renderSchedulePeople;
+
+$('#swSelectVisible').onclick=()=>{
+  visibleSchedulePeople().forEach(p=>SW.people.add(p.id));
+  renderSchedulePeople();
+};
+
+$('#swClearPeople').onclick=()=>{
+  SW.people.clear();
+  renderSchedulePeople();
+};
+
+$('#swAddBlock').onclick=()=>{
+  addScheduleBlock({
+    dia_semana:Number($('#swDay').value),
+    hora_inicio:$('#swBlockStart').value,
+    hora_fim:$('#swBlockEnd').value,
+    disciplina:$('#swSubject').value.trim(),
+    tipo_aula:$('#swType').value
+  });
+
+  $('#swSubject').value='';
+};
+
+$('#swBulkAdd').onclick=addBulkScheduleBlocks;
+
+$('#refreshBtn').onclick=load;$$('nav button').forEach(b=>b.onclick=()=>page(b.dataset.page));
 $('#availDate').value=today();
 
 $('#loginForm').onsubmit=async e=>{e.preventDefault();const r=await supabase.auth.signInWithPassword({email:$('#loginEmail').value,password:$('#loginPassword').value});$('#loginError').textContent=r.error?.message||''};

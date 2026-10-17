@@ -162,7 +162,7 @@
 
     <section id="horarios" class="page">
       <div class="panel">
-        <div class="panel-head"><div><h3>Horários</h3><p>Blocos semanais associados às pessoas.</p></div><button id="newScheduleBtn" class="primary">+ Horário</button></div>
+        <div class="panel-head"><div><h3>Horários</h3><p>Cria um horário semanal completo e atribui-o a várias pessoas de uma só vez.</p></div><button id="newScheduleBtn" class="primary">+ Horário completo</button></div>
         <div id="scheduleList" class="cards"></div>
       </div>
     </section>
@@ -216,6 +216,127 @@
   <div class="modal-actions"><button id="wizardCancel" class="secondary">Cancelar</button><button id="wizardSave" class="primary">Guardar evento e empenhar</button></div>
 </dialog>
 
+
+
+<dialog id="scheduleWizard" class="schedule-dialog">
+  <div class="modal-head">
+    <div>
+      <h3 id="scheduleWizardTitle">Novo horário</h3>
+      <small class="muted">Cria todos os blocos do horário antes de guardar.</small>
+    </div>
+    <button id="scheduleWizardClose" type="button" class="icon">×</button>
+  </div>
+
+  <div class="schedule-wizard-body">
+    <div class="schedule-meta">
+      <div class="grid2">
+        <label class="full">Nome do horário
+          <input id="swName" placeholder="Ex.: 5.º Ano Engenharia Militar — Turma A">
+        </label>
+        <label>Válido desde
+          <input id="swStartDate" type="date">
+        </label>
+        <label>Válido até
+          <input id="swEndDate" type="date">
+        </label>
+        <label class="full">Observação
+          <input id="swNote" placeholder="Opcional">
+        </label>
+      </div>
+    </div>
+
+    <div class="schedule-layout">
+      <section class="schedule-main">
+        <div class="subpanel">
+          <div class="subpanel-head">
+            <div>
+              <b>Blocos do horário</b>
+              <small>Adiciona todas as aulas aqui e guarda apenas no fim.</small>
+            </div>
+            <span id="swBlockCount" class="badge gray">0 blocos</span>
+          </div>
+
+          <div class="block-editor">
+            <label>Dia
+              <select id="swDay">
+                <option value="1">Segunda</option>
+                <option value="2">Terça</option>
+                <option value="3">Quarta</option>
+                <option value="4">Quinta</option>
+                <option value="5">Sexta</option>
+                <option value="6">Sábado</option>
+                <option value="7">Domingo</option>
+              </select>
+            </label>
+            <label>Início<input id="swBlockStart" type="time" step="1800"></label>
+            <label>Fim<input id="swBlockEnd" type="time" step="1800"></label>
+            <label>Disciplina<input id="swSubject" placeholder="Ex.: EG"></label>
+            <label>Tipo
+              <select id="swType">
+                <option value="TEORICA">Teórica</option>
+                <option value="PRATICA">Prática</option>
+                <option value="OUTRA">Outra</option>
+              </select>
+            </label>
+            <button id="swAddBlock" type="button" class="primary">Adicionar</button>
+          </div>
+
+          <details class="bulk-import">
+            <summary>Importar vários blocos de uma vez</summary>
+            <p class="muted">
+              Podes colar linhas vindas do Excel. Formato:
+              Dia | Início | Fim | Disciplina | Tipo.
+            </p>
+            <textarea id="swBulk" placeholder="Segunda&#9;13:30&#9;14:30&#9;EG&#9;PRATICA&#10;Terça&#9;11:30&#9;13:00&#9;VC&#9;TEORICA"></textarea>
+            <button id="swBulkAdd" type="button" class="secondary">Adicionar linhas</button>
+          </details>
+
+          <div class="table-wrap schedule-block-table">
+            <table>
+              <thead>
+                <tr><th>Dia</th><th>Início</th><th>Fim</th><th>Disciplina</th><th>Tipo</th><th></th></tr>
+              </thead>
+              <tbody id="swBlocksBody"></tbody>
+            </table>
+          </div>
+        </div>
+
+        <div class="subpanel">
+          <div class="subpanel-head">
+            <div>
+              <b>Pré-visualização semanal</b>
+              <small>Assim consegues confirmar o horário como numa grelha.</small>
+            </div>
+          </div>
+          <div class="weekly-grid-wrap">
+            <div id="swWeekGrid" class="weekly-grid"></div>
+          </div>
+        </div>
+      </section>
+
+      <aside class="schedule-people-panel">
+        <div class="schedule-people-head">
+          <b>Atribuir a pessoas</b>
+          <span id="swPeopleCount">0 selecionadas</span>
+        </div>
+
+        <input id="swPeopleSearch" placeholder="Pesquisar nº, nome, curso...">
+
+        <div class="schedule-people-actions">
+          <button id="swSelectVisible" type="button" class="secondary">Selecionar visíveis</button>
+          <button id="swClearPeople" type="button" class="secondary">Limpar</button>
+        </div>
+
+        <div id="swPeople" class="schedule-people-list"></div>
+      </aside>
+    </div>
+  </div>
+
+  <div class="modal-actions">
+    <button id="scheduleWizardCancel" type="button" class="secondary">Cancelar</button>
+    <button id="scheduleWizardSave" type="button" class="primary">Guardar horário completo</button>
+  </div>
+</dialog>
 
 <dialog id="profileModal" class="profile-dialog">
   <div class="modal-head">

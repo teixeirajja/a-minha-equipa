@@ -67,13 +67,28 @@ function eventAutoStatus(e){
   if(e.estado_manual) return e.estado_manual;
 
   const now=new Date();
-  const start=new Date(`${e.data}T${e.hora_inicio||'00:00'}:00`);
-  let end;
 
+  // Supabase pode devolver TIME como HH:MM:SS.
+  // Não acrescentar ':00' cegamente, senão 16:00:00 virava 16:00:00:00.
+  const normalizeTime=t=>{
+    const s=String(t||'00:00').trim();
+    if(/^\d{2}:\d{2}$/.test(s)) return `${s}:00`;
+    if(/^\d{2}:\d{2}:\d{2}/.test(s)) return s.slice(0,8);
+    return '00:00:00';
+  };
+
+  const start=new Date(`${e.data}T${normalizeTime(e.hora_inicio)}`);
+
+  let end;
   if(e.hora_fim){
-    end=new Date(`${e.data}T${e.hora_fim}:00`);
+    end=new Date(`${e.data}T${normalizeTime(e.hora_fim)}`);
   }else{
     end=new Date(start.getTime()+60*60*1000);
+  }
+
+  // Salvaguarda: se algum dado vier inválido, não marcar como finalizado por engano.
+  if(Number.isNaN(start.getTime()) || Number.isNaN(end.getTime())){
+    return 'AGENDADO';
   }
 
   if(now<start) return 'AGENDADO';

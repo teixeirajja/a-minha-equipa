@@ -230,6 +230,89 @@ function classOrigin(p){
 
 
 
+
+function isoDateFromLocalDate(date){
+  return [
+    date.getFullYear(),
+    String(date.getMonth()+1).padStart(2,'0'),
+    String(date.getDate()).padStart(2,'0')
+  ].join('-');
+}
+
+function addDaysToDate(date,days){
+  const d=new Date(date.getFullYear(),date.getMonth(),date.getDate());
+  d.setDate(d.getDate()+days);
+  return d;
+}
+
+// Gregorian Easter (Meeus/Jones/Butcher), used for movable Portuguese holidays.
+function easterSunday(year){
+  const a=year%19;
+  const b=Math.floor(year/100);
+  const c=year%100;
+  const d=Math.floor(b/4);
+  const e=b%4;
+  const f=Math.floor((b+8)/25);
+  const g=Math.floor((b-f+1)/3);
+  const h=(19*a+b-d-g+15)%30;
+  const i=Math.floor(c/4);
+  const k=c%4;
+  const l=(32+2*e+2*i-h-k)%7;
+  const m=Math.floor((a+11*h+22*l)/451);
+  const month=Math.floor((h+l-7*m+114)/31);
+  const day=((h+l-7*m+114)%31)+1;
+  return new Date(year,month-1,day);
+}
+
+function portugueseNationalHolidays(year){
+  const easter=easterSunday(year);
+
+  const fixed=[
+    [`${year}-01-01`,'Ano Novo'],
+    [`${year}-04-25`,'Dia da Liberdade'],
+    [`${year}-05-01`,'Dia do Trabalhador'],
+    [`${year}-06-10`,'Dia de Portugal'],
+    [`${year}-08-15`,'Assunção de Nossa Senhora'],
+    [`${year}-10-05`,'Implantação da República'],
+    [`${year}-11-01`,'Dia de Todos os Santos'],
+    [`${year}-12-01`,'Restauração da Independência'],
+    [`${year}-12-08`,'Imaculada Conceição'],
+    [`${year}-12-25`,'Natal']
+  ].map(([data,nome])=>({data,nome,tipo:'Feriado'}));
+
+  const movable=[
+    {
+      data:isoDateFromLocalDate(addDaysToDate(easter,-2)),
+      nome:'Sexta-feira Santa',
+      tipo:'Feriado'
+    },
+    {
+      data:isoDateFromLocalDate(easter),
+      nome:'Domingo de Páscoa',
+      tipo:'Feriado'
+    },
+    {
+      data:isoDateFromLocalDate(addDaysToDate(easter,60)),
+      nome:'Corpo de Deus',
+      tipo:'Feriado'
+    }
+  ];
+
+  return [...fixed,...movable].sort((a,b)=>a.data.localeCompare(b.data));
+}
+
+function classAgendaHolidaysForRange(startDate,endDate){
+  const years=new Set();
+  for(let y=startDate.getFullYear();y<=endDate.getFullYear();y++)years.add(y);
+
+  const start=isoDateFromLocalDate(startDate);
+  const end=isoDateFromLocalDate(endDate);
+
+  return [...years]
+    .flatMap(y=>portugueseNationalHolidays(y))
+    .filter(h=>h.data>=start&&h.data<=end);
+}
+
 function classEvaluationRows(){
   const turmaIds=new Set(tmPeople().map(p=>p.id));
 
@@ -530,26 +613,65 @@ function agendaPeopleLabel(people){
     .join(' · ')} · +${sorted.length-3}`;
 }
 
-function renderClassAgendaList(all){
+function renderClassAgendaList(all,holidays=[]){
   const target=$('#classAgendaList');
   if(!target)return;
 
   const todayIso=today();
-  const upcoming=[...all]
-    .filter(ev=>String(ev.data||'')>=todayIso)
+
+  const evalItems=[...all].map(ev=>({
+    kind:'evaluation',
+    data:ev.data,
+    value:ev
+  }));
+
+  const holidayItems=[...holidays].map(h=>({
+    kind:'holiday',
+    data:h.data,
+    value:h
+  }));
+
+  const items=[...evalItems,...holidayItems];
+
+  const upcoming=items
+    .filter(item=>String(item.data||'')>=todayIso)
     .sort((a,b)=>
       String(a.data||'').localeCompare(String(b.data||'')) ||
-      String(a.cadeira||'').localeCompare(String(b.cadeira||''),'pt')
+      String(a.kind).localeCompare(String(b.kind))
     );
 
-  const past=[...all]
-    .filter(ev=>String(ev.data||'')<todayIso)
+  const past=items
+    .filter(item=>String(item.data||'')<todayIso)
     .sort((a,b)=>
       String(b.data||'').localeCompare(String(a.data||'')) ||
-      String(a.cadeira||'').localeCompare(String(b.cadeira||''),'pt')
+      String(a.kind).localeCompare(String(b.kind))
     );
 
-  const rows=(items,pastMode=false)=>items.map(ev=>{
+  const rows=(rows,pastMode=false)=>rows.map(item=>{
+    if(item.kind==='holiday'){
+      const h=item.value;
+      return `
+        <div class="agenda-list-row holiday-row ${pastMode?'past':''}">
+          <div class="agenda-list-date">
+            <strong>${fmt(h.data)}</strong>
+            <span>${new Intl.DateTimeFormat('pt-PT',{weekday:'short'}).format(new Date(`${h.data}T12:00:00`))}</span>
+          </div>
+
+          <div class="agenda-list-type feriado">Feriado</div>
+
+          <div class="agenda-list-main">
+            <b>${esc(h.nome)}</b>
+            <small>Feriado nacional</small>
+          </div>
+
+          <div class="agenda-list-people">
+            <span>Turma</span>
+            <small>Sem atividade letiva associada</small>
+          </div>
+        </div>`;
+    }
+
+    const ev=item.value;
     const cls=agendaTypeClass(ev.tipo);
     const people=[...ev.people].sort((a,b)=>
       String(a.nome||'').localeCompare(String(b.nome||''),'pt')
@@ -579,15 +701,15 @@ function renderClassAgendaList(all){
   target.innerHTML=`
     <div class="agenda-list-section">
       <div class="agenda-list-section-head">
-        <h3>Próximas avaliações</h3>
+        <h3>Próximos compromissos</h3>
         <span>${upcoming.length}</span>
       </div>
-      ${upcoming.length?rows(upcoming):'<div class="summary">Sem avaliações futuras.</div>'}
+      ${upcoming.length?rows(upcoming):'<div class="summary">Sem compromissos futuros.</div>'}
     </div>
 
     ${past.length?`
       <details class="agenda-past-details">
-        <summary>Avaliações anteriores · ${past.length}</summary>
+        <summary>Anteriores · ${past.length}</summary>
         <div class="agenda-list-section past-section">
           ${rows(past,true)}
         </div>
@@ -635,7 +757,18 @@ function renderClassAgenda(){
   const gridStart=new Date(year,month,1-firstWeekday);
 
   const all=aggregateAgendaEvaluations(classEvaluationRows());
-  renderClassAgendaList(all);
+
+  const calendarEnd=new Date(gridStart);
+  calendarEnd.setDate(calendarEnd.getDate()+41);
+
+  const holidays=classAgendaHolidaysForRange(gridStart,calendarEnd);
+  renderClassAgendaList(
+    all,
+    classAgendaHolidaysForRange(
+      new Date(year,0,1),
+      new Date(year+1,11,31)
+    )
+  );
 
   const byDate=new Map();
   all.forEach(ev=>{
@@ -643,16 +776,26 @@ function renderClassAgenda(){
     byDate.get(ev.data).push(ev);
   });
 
+  const holidaysByDate=new Map();
+  holidays.forEach(h=>{
+    if(!holidaysByDate.has(h.data))holidaysByDate.set(h.data,[]);
+    holidaysByDate.get(h.data).push(h);
+  });
+
   const monthPrefix=`${year}-${String(month+1).padStart(2,'0')}-`;
   const monthItems=all.filter(ev=>String(ev.data||'').startsWith(monthPrefix));
+  const monthHolidays=holidays.filter(h=>String(h.data||'').startsWith(monthPrefix));
 
   const rawCount=classEvaluationRows()
     .filter(ev=>String(ev.data||'').startsWith(monthPrefix))
     .length;
 
-  summary.textContent=monthItems.length===rawCount
+  const evalText=monthItems.length===rawCount
     ? `${rawCount} avaliação${rawCount===1?'':'ões'}`
     : `${monthItems.length} avaliação${monthItems.length===1?'':'ões'} · ${rawCount} registo${rawCount===1?'':'s'}`;
+
+  const holidayText=`${monthHolidays.length} feriado${monthHolidays.length===1?'':'s'}`;
+  summary.textContent=`${evalText} · ${holidayText}`;
 
   const todayIso=today();
 
@@ -675,6 +818,13 @@ function renderClassAgenda(){
       .sort((a,b)=>
         String(a.cadeira||'').localeCompare(String(b.cadeira||''),'pt',{sensitivity:'base'})
       );
+
+    const holidayCards=(holidaysByDate.get(iso)||[]).map(h=>`
+      <div class="agenda-holiday" title="${esc(h.nome)}">
+        <b>${esc(h.nome)}</b>
+        <span>Feriado nacional</span>
+      </div>
+    `).join('');
 
     const cards=evaluations.map(ev=>{
       const cls=agendaTypeClass(ev.tipo);
@@ -717,6 +867,7 @@ function renderClassAgenda(){
           </div>
         </div>
         <div class="class-calendar-events">
+          ${holidayCards}
           ${cards}
         </div>
       </div>`;
@@ -933,6 +1084,10 @@ function renderClassModule(){
   const next7=upcoming.filter(ev=>String(ev.data||'')<=end7Iso);
   const next=upcoming[0]||null;
 
+  const todayDate=new Date(`${todayIso}T12:00:00`);
+  const end7Date=new Date(`${end7Iso}T12:00:00`);
+  const holidays7=classAgendaHolidaysForRange(todayDate,end7Date);
+
   const scheduledIds=classPeopleWithSchedule();
   const noAce=people.filter(p=>!String(p.ace||'').trim());
   const noSchedule=people.filter(p=>!scheduledIds.has(p.id));
@@ -981,7 +1136,34 @@ function renderClassModule(){
   if(weekBox){
     const alertRows=[];
 
-    next7.slice(0,5).forEach(ev=>{
+    const agendaRows=[
+      ...next7.map(ev=>({
+        kind:'evaluation',
+        data:ev.data,
+        value:ev
+      })),
+      ...holidays7.map(h=>({
+        kind:'holiday',
+        data:h.data,
+        value:h
+      }))
+    ].sort((a,b)=>String(a.data).localeCompare(String(b.data)));
+
+    agendaRows.slice(0,6).forEach(item=>{
+      if(item.kind==='holiday'){
+        const h=item.value;
+        alertRows.push(`
+          <div class="week-agenda-row holiday">
+            <div>
+              <b>${fmt(h.data)} · ${esc(h.nome)}</b>
+              <small>Feriado nacional</small>
+            </div>
+            <span class="agenda-mini-dot feriado"></span>
+          </div>`);
+        return;
+      }
+
+      const ev=item.value;
       alertRows.push(`
         <div class="week-agenda-row">
           <div>

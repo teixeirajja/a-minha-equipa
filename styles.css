@@ -1935,3 +1935,46 @@ body{
     grid-column:auto;
   }
 }
+
+
+/* V6.9.1 — Feriados nacionais na Agenda */
+.agenda-holiday{
+  min-width:0;
+  padding:6px 7px;
+  border-left:4px solid #c23b63;
+  border-radius:7px;
+  background:#fcecf2;
+  color:#7b2340;
+  font-size:10px;
+  line-height:1.25;
+}
+.agenda-holiday b,
+.agenda-holiday span{
+  display:block;
+}
+.agenda-holiday b{
+  font-size:11px;
+}
+.agenda-holiday span{
+  margin-top:2px;
+  opacity:.78;
+}
+
+.agenda-dot.feriado,
+.agenda-mini-dot.feriado{
+  background:#c23b63;
+}
+
+.agenda-list-type.feriado{
+  background:#fcecf2;
+  border-color:#c23b63;
+  color:#7b2340;
+}
+
+.agenda-list-row.holiday-row{
+  background:#fffafb;
+}
+
+.week-agenda-row.holiday{
+  color:#7b2340;
+}

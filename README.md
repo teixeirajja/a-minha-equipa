@@ -959,3 +959,33 @@ No seletor de pessoas foram adicionados atalhos:
 Os atalhos usam diretamente as associações dos horários existentes e adicionam essas pessoas à seleção atual, permitindo combinar vários grupos.
 
 Não requer SQL novo.
+
+
+## V6.9.1 — Feriados nacionais
+
+A Agenda da Turma passa a mostrar automaticamente os feriados nacionais de Portugal.
+
+Inclui feriados fixos e móveis:
+- Ano Novo
+- Sexta-feira Santa
+- Domingo de Páscoa
+- Dia da Liberdade
+- Dia do Trabalhador
+- Corpo de Deus
+- Dia de Portugal
+- Assunção de Nossa Senhora
+- Implantação da República
+- Dia de Todos os Santos
+- Restauração da Independência
+- Imaculada Conceição
+- Natal
+
+Os feriados:
+- aparecem no calendário com cor própria;
+- aparecem na vista Lista;
+- entram no painel `Próximos 7 dias` do Resumo da Turma;
+- não contam como avaliações.
+
+As datas móveis são calculadas automaticamente para qualquer ano.
+
+Não requer SQL novo.

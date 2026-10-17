@@ -20,6 +20,8 @@ let externalSorts=[{key:'nome',dir:1}];
 let scheduleBlockSorts=[{key:'dia',dir:1},{key:'inicio',dir:1}];
 let currentScheduleViewerBlocks=[];
 
+let classSorts=[{key:'nome',dir:1}];
+let classFilters={numero_corpo:'',nome:'',posto:'',ano:'',ramo:'',nim:'',origem:'',funcao:''};
 let availSorts=[{key:'nome',dir:1}];
 let availColumnFilters={
   numero_corpo:'',
@@ -154,7 +156,140 @@ async function load(){
   });
   render();
 }
-function render(){renderHome();renderPeople();renderExternalPeople();renderConstraints();renderSchedules();renderEvents();renderHistory()}
+function render(){renderHome();renderPeople();renderExternalPeople();renderConstraints();renderSchedules();renderEvents();renderHistory();renderClassModule();renderModuleCounts()}
+
+
+function tmPeople(){
+  return S.people.filter(
+    p=>p.ativo!==false && String(p.curso||'').trim().toUpperCase()==='TM'
+  );
+}
+
+function renderModuleCounts(){
+  const team=S.people.filter(p=>p.ativo!==false && p.integra_equipa!==false);
+  const tm=tmPeople();
+  if($('#moduleTeamCount'))$('#moduleTeamCount').textContent=team.length;
+  if($('#moduleClassCount'))$('#moduleClassCount').textContent=tm.length;
+}
+
+function showModuleSelector(){
+  $('#moduleView').classList.remove('hidden');
+  $('#appView').classList.add('hidden');
+  $('#classView').classList.add('hidden');
+}
+
+function showTeamModule(){
+  $('#moduleView').classList.add('hidden');
+  $('#classView').classList.add('hidden');
+  $('#appView').classList.remove('hidden');
+}
+
+function showClassModule(){
+  $('#moduleView').classList.add('hidden');
+  $('#appView').classList.add('hidden');
+  $('#classView').classList.remove('hidden');
+  renderClassModule();
+}
+
+const classTitles={
+  classInicio:['Resumo da Turma','Visão geral de todos os elementos TM.'],
+  classPessoas:['Turma TM','Todos os TM, pertencentes ou não à equipa.']
+};
+
+function classPage(id){
+  $$('.class-page').forEach(x=>x.classList.toggle('active',x.id===id));
+  $$('.class-nav button').forEach(x=>x.classList.toggle('active',x.dataset.classPage===id));
+  const t=classTitles[id];
+  if(t){$('#classPageTitle').textContent=t[0];$('#classPageSubtitle').textContent=t[1]}
+}
+
+function classOrigin(p){
+  return p.integra_equipa===false?'Externo':'Equipa';
+}
+
+function renderClassModule(){
+  const people=tmPeople();
+  if(!$('#cTotal'))return;
+
+  $('#cTotal').textContent=people.length;
+  $('#cYear5').textContent=people.filter(p=>Number(p.ano)===5).length;
+  $('#cYear6').textContent=people.filter(p=>Number(p.ano)===6).length;
+  $('#cExternal').textContent=people.filter(p=>p.integra_equipa===false).length;
+  $('#cExe').textContent=people.filter(p=>p.ramo==='EXE').length;
+  $('#cGnr').textContent=people.filter(p=>p.ramo==='GNR').length;
+  $('#cTeam').textContent=people.filter(p=>p.integra_equipa!==false).length;
+  $('#cFunction').textContent=people.filter(p=>String(p.funcao||'').trim()).length;
+
+  const buckets=[
+    {label:'EXE · 5.º',count:people.filter(p=>p.ramo==='EXE'&&Number(p.ano)===5).length},
+    {label:'EXE · 6.º',count:people.filter(p=>p.ramo==='EXE'&&Number(p.ano)===6).length},
+    {label:'GNR · 5.º',count:people.filter(p=>p.ramo==='GNR'&&Number(p.ano)===5).length},
+    {label:'GNR · 6.º',count:people.filter(p=>p.ramo==='GNR'&&Number(p.ano)===6).length}
+  ];
+  const max=Math.max(1,...buckets.map(x=>x.count));
+  $('#classDistribution').innerHTML=buckets.map(x=>`
+    <div class="metric-row">
+      <div class="metric-label">${esc(x.label)}</div>
+      <div class="metric-bar"><span style="width:${(x.count/max)*100}%"></span></div>
+      <div class="metric-value">${x.count}</div>
+    </div>`).join('');
+
+  renderClassPeople();
+}
+
+function renderClassPeople(){
+  $$('#classPeopleTable [data-tfilter]').forEach(el=>{
+    classFilters[el.dataset.tfilter]=String(el.value||'').trim().toLowerCase();
+  });
+  const q=String($('#classSearch')?.value||'').trim().toLowerCase();
+
+  let rows=tmPeople().filter(p=>{
+    const origin=p.integra_equipa===false?'externo':'equipa';
+    if(q && ![p.numero_corpo,p.nome,p.posto,p.nim,p.ramo,p.funcao,p.ano]
+      .some(v=>String(v||'').toLowerCase().includes(q))) return false;
+    if(classFilters.numero_corpo && !String(p.numero_corpo||'').toLowerCase().includes(classFilters.numero_corpo))return false;
+    if(classFilters.nome && !String(p.nome||'').toLowerCase().includes(classFilters.nome))return false;
+    if(classFilters.posto && !String(p.posto||'').toLowerCase().includes(classFilters.posto))return false;
+    if(classFilters.ano && String(p.ano||'')!==classFilters.ano)return false;
+    if(classFilters.ramo && String(p.ramo||'').toLowerCase()!==classFilters.ramo)return false;
+    if(classFilters.nim && !String(p.nim||'').toLowerCase().includes(classFilters.nim))return false;
+    if(classFilters.origem && origin!==classFilters.origem)return false;
+    if(classFilters.funcao && !String(p.funcao||'').toLowerCase().includes(classFilters.funcao))return false;
+    return true;
+  });
+
+  rows=[...rows].sort((a,b)=>{
+    for(const sort of classSorts){
+      let av,bv,cmp=0;
+      if(sort.key==='origem'){
+        av=classOrigin(a);bv=classOrigin(b);
+      }else{
+        av=a[sort.key]??'';bv=b[sort.key]??'';
+      }
+      if(['ano','numero_corpo','nim'].includes(sort.key)){
+        const an=Number(av),bn=Number(bv);
+        if(!Number.isNaN(an)&&!Number.isNaN(bn))cmp=an-bn;
+        else cmp=String(av).localeCompare(String(bv),'pt',{numeric:true,sensitivity:'base'});
+      }else cmp=String(av).localeCompare(String(bv),'pt',{numeric:true,sensitivity:'base'});
+      if(cmp!==0)return cmp*sort.dir;
+    }
+    return 0;
+  });
+
+  $('#classPeopleBody').innerHTML=rows.map(p=>`
+    <tr>
+      <td>${esc(p.numero_corpo||'—')}</td>
+      <td><b>${esc(p.nome)}</b></td>
+      <td>${esc(p.posto||'')}</td>
+      <td>${p.ano||'—'}</td>
+      <td>${esc(p.ramo||'—')}</td>
+      <td>${esc(p.nim||'—')}</td>
+      <td><span class="${p.integra_equipa===false?'person-origin-external':'person-origin-team'}">${classOrigin(p)}</span></td>
+      <td>${esc(p.funcao||'—')}</td>
+    </tr>`).join('') || '<tr><td colspan="8" class="muted">Sem resultados.</td></tr>';
+
+  multiSortIndicator($$('.class-sort-head'),classSorts,'tsort');
+}
 
 function eventAutoStatus(e){
   if(e.estado_manual) return e.estado_manual;
@@ -3069,9 +3204,46 @@ $('#swAddBlock').onclick=()=>{
 
 $('#swBulkAdd').onclick=addBulkScheduleBlocks;
 
-$('#refreshBtn').onclick=load;$$('nav button').forEach(b=>b.onclick=()=>page(b.dataset.page));
+$('#refreshBtn').onclick=load;$$('#appView nav button').forEach(b=>b.onclick=()=>page(b.dataset.page));
 $('#availDate').value=today();
+
+
+$('#openTeamModule').onclick=showTeamModule;
+$('#openClassModule').onclick=showClassModule;
+$('#backToModulesBtn').onclick=showModuleSelector;
+$('#classBackToModulesBtn').onclick=showModuleSelector;
+$('#moduleLogoutBtn').onclick=()=>supabase.auth.signOut();
+$('#classLogoutBtn').onclick=()=>supabase.auth.signOut();
+$('#classRefreshBtn').onclick=async()=>{await load();renderClassModule()};
+$$('.class-nav button').forEach(b=>b.onclick=()=>classPage(b.dataset.classPage));
+$('#classSearch').oninput=renderClassPeople;
+$$('#classPeopleTable [data-tfilter]').forEach(el=>{
+  el.addEventListener('input',renderClassPeople);
+  el.addEventListener('change',renderClassPeople);
+});
+$$('.class-sort-head').forEach(btn=>btn.onclick=()=>{
+  multiSortClick(classSorts,btn.dataset.tsort);
+  renderClassPeople();
+});
 
 $('#loginForm').onsubmit=async e=>{e.preventDefault();const r=await supabase.auth.signInWithPassword({email:$('#loginEmail').value,password:$('#loginPassword').value});$('#loginError').textContent=r.error?.message||''};
 $('#logoutBtn').onclick=()=>supabase.auth.signOut();
-supabase.auth.onAuthStateChange(async(_e,s)=>{$('#loginView').classList.toggle('hidden',!!s);$('#appView').classList.toggle('hidden',!s);if(s){$('#sessionEmail').textContent=s.user.email||'';try{await load()}catch(e){toast(e.message)}}});
+supabase.auth.onAuthStateChange(async(_e,s)=>{
+  $('#loginView').classList.toggle('hidden',!!s);
+  if(!s){
+    $('#moduleView').classList.add('hidden');
+    $('#appView').classList.add('hidden');
+    $('#classView').classList.add('hidden');
+    return;
+  }
+
+  const email=s.user.email||'';
+  $('#sessionEmail').textContent=email;
+  $('#classSessionEmail').textContent=email;
+  $('#moduleEmail').textContent=email;
+
+  try{
+    await load();
+    showModuleSelector();
+  }catch(e){toast(e.message)}
+});

@@ -745,3 +745,23 @@ Agora:
 - o novo ícone aparece também no login e como favicon.
 
 Não requer SQL novo.
+
+
+## V6.0 — QGApp com dois módulos
+
+O login passa a abrir o ecrã principal `QGApp — Comando e Gestão de Operações`.
+
+Existem dois módulos:
+
+- `A Minha Equipa`: mantém a aplicação atual.
+- `A Minha Turma`: inclui automaticamente todas as pessoas cujo curso é `TM`, independentemente de pertencerem à equipa ou serem externas.
+
+A Minha Turma tem, nesta primeira versão:
+- resumo próprio;
+- contagens por ano e ramo;
+- distinção entre pessoas da equipa e externas;
+- lista completa de TM;
+- pesquisa, filtros e ordenação multi-critério.
+
+Os dois módulos usam o mesmo login e os mesmos registos de pessoas no Supabase.
+Não requer SQL novo.

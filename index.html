@@ -3,7 +3,7 @@
 <head>
   <meta charset="utf-8">
   <meta name="viewport" content="width=device-width,initial-scale=1">
-  <title>A Minha Equipa</title>
+  <title>QGApp — Comando e Gestão de Operações</title>
   <link rel="icon" type="image/png" href="favicon.png">
   <link rel="stylesheet" href="styles.css">
 </head>
@@ -12,14 +12,52 @@
 
 <section id="loginView" class="login-shell">
   <form id="loginForm" class="login-card">
-    <div class="logo login-app-logo"><img src="app-logo.png" alt="A Minha Equipa"></div>
-    <h1>A Minha Equipa</h1>
-    <p>Gestão de disponibilidade, pessoal e eventos.</p>
+    <div class="logo login-app-logo"><img src="app-logo.png" alt="QGApp"></div>
+    <h1>QGApp</h1>
+    <p><b>Comando e Gestão de Operações</b><br><span class="muted">Acesso aos módulos de gestão.</span></p>
     <label>Email<input id="loginEmail" type="email" required autocomplete="email"></label>
     <label>Password<input id="loginPassword" type="password" required autocomplete="current-password"></label>
     <button class="primary">Entrar</button>
     <div id="loginError" class="error"></div>
   </form>
+</section>
+
+
+<section id="moduleView" class="module-shell hidden">
+  <div class="module-topbar">
+    <div class="module-qg-brand">
+      <img src="app-logo.png" alt="QGApp">
+      <div><h1>QGApp</h1><p>Comando e Gestão de Operações</p></div>
+    </div>
+    <div class="module-user"><span id="moduleEmail"></span><button id="moduleLogoutBtn" class="secondary">Terminar sessão</button></div>
+  </div>
+
+  <div class="module-picker">
+    <div class="module-picker-head">
+      <h2>Escolher módulo</h2>
+      <p>Seleciona a área em que queres trabalhar.</p>
+    </div>
+
+    <div class="module-cards">
+      <button id="openTeamModule" class="module-card team-module-card" type="button">
+        <div class="module-card-logo"><img src="app-logo.png" alt="A Minha Equipa"></div>
+        <div class="module-card-text">
+          <h3>A Minha Equipa</h3>
+          <p>Disponibilidade, eventos, constrangimentos e horários.</p>
+          <span><strong id="moduleTeamCount">—</strong> elementos da equipa</span>
+        </div>
+      </button>
+
+      <button id="openClassModule" class="module-card class-module-card" type="button">
+        <div class="module-card-logo class-card-logo">TM</div>
+        <div class="module-card-text">
+          <h3>A Minha Turma</h3>
+          <p>Área dedicada a todos os elementos do curso TM.</p>
+          <span><strong id="moduleClassCount">—</strong> elementos TM</span>
+        </div>
+      </button>
+    </div>
+  </div>
 </section>
 
 <div id="appView" class="app hidden">
@@ -34,7 +72,11 @@
       <button data-page="horarios">Horários</button>
       <button data-page="historico">Histórico</button>
     </nav>
-    <div class="aside-bottom"><span id="sessionEmail"></span><button id="logoutBtn" class="text-btn">Terminar sessão</button></div>
+    <div class="aside-bottom">
+      <button id="backToModulesBtn" class="module-back-btn">← QGApp / Módulos</button>
+      <span id="sessionEmail"></span>
+      <button id="logoutBtn" class="text-btn">Terminar sessão</button>
+    </div>
   </aside>
 
   <main>
@@ -340,6 +382,91 @@
 <th><button class="sort-head history-sort-head" data-hsort="acao">Ação <span>↕</span></button></th>
 <th><button class="sort-head history-sort-head" data-hsort="registo">Registo <span>↕</span></button></th>
 </tr></thead><tbody id="historyBody"></tbody></table></div>
+      </div>
+    </section>
+  </main>
+</div>
+
+
+<div id="classView" class="app class-app hidden">
+  <aside class="class-aside">
+    <div class="brand">
+      <div class="logo small class-side-logo">TM</div>
+      <div><b>A Minha Turma</b><small>Curso TM</small></div>
+    </div>
+    <nav class="class-nav">
+      <button data-class-page="classInicio" class="active">Resumo</button>
+      <button data-class-page="classPessoas">Turma</button>
+    </nav>
+    <div class="aside-bottom">
+      <button id="classBackToModulesBtn" class="module-back-btn">← QGApp / Módulos</button>
+      <span id="classSessionEmail"></span>
+      <button id="classLogoutBtn" class="text-btn">Terminar sessão</button>
+    </div>
+  </aside>
+
+  <main>
+    <header>
+      <div><h2 id="classPageTitle">Resumo da Turma</h2><p id="classPageSubtitle">Visão geral de todos os elementos TM.</p></div>
+      <button id="classRefreshBtn" class="secondary">Atualizar</button>
+    </header>
+
+    <section id="classInicio" class="class-page active">
+      <div class="stats class-stats">
+        <article><span>Elementos TM</span><strong id="cTotal">—</strong></article>
+        <article><span>5.º ano</span><strong id="cYear5">—</strong></article>
+        <article><span>6.º ano</span><strong id="cYear6">—</strong></article>
+        <article><span>Externos / função</span><strong id="cExternal">—</strong></article>
+      </div>
+
+      <div class="dashboard-grid">
+        <div class="panel">
+          <div class="panel-head"><div><h3>Distribuição TM</h3><p>Todos os TM, pertencentes ou não à equipa.</p></div></div>
+          <div id="classDistribution" class="metric-list"></div>
+        </div>
+        <div class="panel">
+          <div class="panel-head"><div><h3>Indicadores</h3><p>Resumo rápido da turma.</p></div></div>
+          <div class="mini-stats">
+            <article><span>EXE · TM</span><strong id="cExe">—</strong></article>
+            <article><span>GNR · TM</span><strong id="cGnr">—</strong></article>
+            <article><span>Na equipa</span><strong id="cTeam">—</strong></article>
+            <article><span>Com função</span><strong id="cFunction">—</strong></article>
+          </div>
+        </div>
+      </div>
+    </section>
+
+    <section id="classPessoas" class="class-page">
+      <div class="panel">
+        <div class="panel-head"><div><h3>Turma TM</h3><p>Inclui membros da equipa e pessoas externas.</p></div></div>
+        <div class="toolbar"><input id="classSearch" placeholder="Pesquisar nº, nome, NIM, posto, função..."></div>
+        <div class="table-wrap">
+          <table id="classPeopleTable">
+            <thead>
+              <tr>
+                <th><button class="sort-head class-sort-head" data-tsort="numero_corpo">Nº <span>↕</span></button></th>
+                <th><button class="sort-head class-sort-head" data-tsort="nome">Nome <span>↕</span></button></th>
+                <th><button class="sort-head class-sort-head" data-tsort="posto">Posto <span>↕</span></button></th>
+                <th><button class="sort-head class-sort-head" data-tsort="ano">Ano <span>↕</span></button></th>
+                <th><button class="sort-head class-sort-head" data-tsort="ramo">Ramo <span>↕</span></button></th>
+                <th><button class="sort-head class-sort-head" data-tsort="nim">NIM <span>↕</span></button></th>
+                <th><button class="sort-head class-sort-head" data-tsort="origem">Origem <span>↕</span></button></th>
+                <th><button class="sort-head class-sort-head" data-tsort="funcao">Função <span>↕</span></button></th>
+              </tr>
+              <tr class="column-filters">
+                <th><input data-tfilter="numero_corpo" placeholder="Filtrar"></th>
+                <th><input data-tfilter="nome" placeholder="Filtrar"></th>
+                <th><input data-tfilter="posto" placeholder="Filtrar"></th>
+                <th><select data-tfilter="ano"><option value="">Todos</option><option value="5">5.º</option><option value="6">6.º</option></select></th>
+                <th><select data-tfilter="ramo"><option value="">Todos</option><option value="EXE">EXE</option><option value="GNR">GNR</option></select></th>
+                <th><input data-tfilter="nim" placeholder="Filtrar"></th>
+                <th><select data-tfilter="origem"><option value="">Todos</option><option value="equipa">Equipa</option><option value="externo">Externo</option></select></th>
+                <th><input data-tfilter="funcao" placeholder="Filtrar"></th>
+              </tr>
+            </thead>
+            <tbody id="classPeopleBody"></tbody>
+          </table>
+        </div>
       </div>
     </section>
   </main>

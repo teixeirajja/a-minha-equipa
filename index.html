@@ -24,6 +24,15 @@
 
 
 <section id="moduleView" class="module-shell hidden">
+  <div class="module-video-bg" aria-hidden="true">
+    <iframe
+      src="https://www.youtube-nocookie.com/embed/Hgg7M3kSqyE?autoplay=1&mute=1&controls=0&loop=1&playlist=Hgg7M3kSqyE&modestbranding=1&playsinline=1&rel=0&iv_load_policy=3&disablekb=1"
+      title=""
+      frameborder="0"
+      allow="autoplay; encrypted-media"
+      tabindex="-1"></iframe>
+  </div>
+  <div class="module-video-overlay" aria-hidden="true"></div>
   <div class="module-topbar">
     <div class="module-qg-brand">
       <img src="app-logo.png" alt="QGApp">
@@ -40,7 +49,7 @@
 
     <div class="module-cards">
       <button id="openTeamModule" class="module-card team-module-card" type="button">
-        <div class="module-card-logo"><img src="app-logo.png" alt="A Minha Equipa"></div>
+        <div class="module-card-logo"><img src="equipa-logo.png" alt="A Minha Equipa"></div>
         <div class="module-card-text">
           <h3>A Minha Equipa</h3>
           <p>Disponibilidade, eventos, constrangimentos e horários.</p>
@@ -49,7 +58,7 @@
       </button>
 
       <button id="openClassModule" class="module-card class-module-card" type="button">
-        <div class="module-card-logo class-card-logo">TM</div>
+        <div class="module-card-logo class-card-logo"><img src="turma-logo.png" alt="A Minha Turma"></div>
         <div class="module-card-text">
           <h3>A Minha Turma</h3>
           <p>Área dedicada à turma TM do 6.º ano.</p>
@@ -62,7 +71,7 @@
 
 <div id="appView" class="app hidden">
   <aside>
-    <div class="brand"><div class="logo small app-logo"><img src="app-logo.png" alt="A Minha Equipa"></div><div><b>A Minha Equipa</b><small>Gestão interna</small></div></div>
+    <div class="brand"><div class="logo small module-side-image"><img src="equipa-logo.png" alt="A Minha Equipa"></div><div><b>A Minha Equipa</b><small>Gestão interna</small></div></div>
     <nav>
       <button data-page="inicio" class="active">Resumo</button>
       <button data-page="consulta">Consultar disponibilidade</button>
@@ -391,7 +400,7 @@
 <div id="classView" class="app class-app hidden">
   <aside class="class-aside">
     <div class="brand">
-      <div class="logo small class-side-logo">TM</div>
+      <div class="logo small class-side-logo module-side-image"><img src="turma-logo.png" alt="A Minha Turma"></div>
       <div><b>A Minha Turma</b><small>TM · 6.º ano</small></div>
     </div>
     <nav class="class-nav">

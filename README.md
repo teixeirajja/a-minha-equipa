@@ -825,3 +825,17 @@ Na página `A Minha Turma`:
 Os horários não são duplicados na base de dados: a Turma apresenta os mesmos registos já guardados no Supabase.
 
 Não requer SQL novo.
+
+
+## V6.4 — Logos dos módulos + vídeo no seletor
+
+- `A Minha Equipa` passa a usar o novo símbolo fornecido.
+- `A Minha Turma` passa a usar o novo símbolo fornecido.
+- Os símbolos aparecem nos cartões do seletor, nas barras laterais e como favicon das respetivas páginas.
+- O símbolo principal do QGApp mantém-se independente.
+- O ecrã de escolha de módulos passa a ter como fundo o vídeo YouTube `Hgg7M3kSqyE`.
+- O vídeo tenta reproduzir automaticamente, sem som, sem controlos e em loop.
+- Existe uma camada escura/transparente para manter os textos e cartões legíveis.
+- Caso o browser bloqueie autoplay ou o YouTube não carregue, fica visível um fundo escuro de fallback.
+
+Não requer SQL novo.

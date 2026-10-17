@@ -102,6 +102,366 @@ function eventIsCancelled(e){
   return eventAutoStatus(e)==='CANCELADO';
 }
 
+
+/* Restored in v5.6.1 after accidental omission */
+function page(n){$$('.page').forEach(x=>x.classList.toggle('active',x.id===n));$$('nav button').forEach(x=>x.classList.toggle('active',x.dataset.page===n));$('#pageTitle').textContent=titles[n][0];$('#pageSubtitle').textContent=titles[n][1]}
+
+function modal(title,body,save){$('#modalTitle').textContent=title;$('#modalBody').innerHTML=body;$('#modalForm').onsubmit=async e=>{e.preventDefault();await save(new FormData(e.currentTarget))};$('#modal').showModal()}
+
+function closeModal(){$('#modal').close()}
+$('#modalClose').onclick=closeModal;$('#modalCancel').onclick=closeModal;
+$('#profileClose').onclick=()=>$('#profileModal').close();
+const peopleOpts=id=>S.people.map(p=>`<option value="${p.id}" ${p.id===id?'selected':''}>${esc(p.numero_corpo||'—')} · ${esc(p.nome)}</option>`).join('');
+const personLabel=p=>`${p.numero_corpo||'—'} · ${p.nome}`;
+const personFromSearch=value=>{
+  const v=String(value||'').trim().toLowerCase();
+  return S.people.find(p=>personLabel(p).toLowerCase()===v)
+      || S.people.find(p=>String(p.numero_corpo||'').toLowerCase()===v)
+      || S.people.find(p=>p.nome.toLowerCase()===v);
+};
+const personDatalist=()=>`<datalist id="peopleDatalist">${S.people.map(p=>`<option value="${esc(personLabel(p))}"></option>`).join('')}</datalist>`;
+
+const peopleChecks=ids=>`<div class="check-list">${S.people.map(p=>`<label class="check-row"><input name="persons" type="checkbox" value="${p.id}" ${ids.includes(p.id)?'checked':''}>${esc(p.numero_corpo||'—')} · ${esc(p.nome)}</label>`).join('')}</div>`;
+
+function renderSchedules(){
+  const models=S.scheduleModels;
+
+  const modelHtml=models.map(m=>{
+    const blocks=S.schedules
+      .filter(h=>h.horario_modelo_id===m.id)
+      .sort((a,b)=>a.dia_semana-b.dia_semana||a.hora_inicio.localeCompare(b.hora_inicio));
+
+    const peopleCount=S.scheduleModelPeople
+      .filter(x=>x.horario_modelo_id===m.id).length;
+
+    const dayCounts=new Map();
+    blocks.forEach(b=>dayCounts.set(b.dia_semana,(dayCounts.get(b.dia_semana)||0)+1));
+
+    return `<div class="schedule-model-card">
+      <div class="schedule-model-top">
+        <div>
+          <h4>${esc(m.nome)}</h4>
+          <div class="schedule-model-meta">
+            ${fmt(m.data_inicio)} → ${fmt(m.data_fim)}
+            · ${blocks.length} bloco(s)
+            · ${peopleCount} pessoa(s)
+          </div>
+          <div class="schedule-day-chips">
+            ${[...dayCounts.entries()].map(([d,n])=>`<span class="schedule-chip">${day(d)} · ${n}</span>`).join('')}
+          </div>
+        </div>
+        <div class="schedule-model-actions">
+          <button class="export-btn view-model-schedule" data-id="${m.id}" title="Ver horário">Ver</button>
+          <button class="icon edit-model-schedule" data-id="${m.id}" title="Editar">✎</button>
+          <button class="icon delete-model-schedule" data-id="${m.id}" title="Apagar">🗑</button>
+        </div>
+      </div>
+    </div>`;
+  }).join('');
+
+  const legacy=S.schedules.filter(h=>!h.horario_modelo_id);
+  const legacyHtml=legacy.length
+    ? `<div class="legacy-schedules">
+        <div class="summary"><b>Blocos antigos</b> — continuam válidos, mas os novos horários devem ser criados pelo editor completo.</div>
+        ${legacy.map(h=>`<div class="card">
+          <div>
+            <h4>${esc(h.nome)}</h4>
+            <p>${day(h.dia_semana)} · ${h.hora_inicio.slice(0,5)}–${h.hora_fim.slice(0,5)} · ${esc(h.tipo_aula)}</p>
+            <p>${fmt(h.data_inicio)} → ${fmt(h.data_fim)} · ${S.schedulePeople.filter(x=>x.horario_id===h.id).length} pessoa(s)</p>
+          </div>
+          <div class="row-actions">
+            <button class="icon edit-legacy-schedule" data-id="${h.id}">✎</button>
+            <button class="icon delete-legacy-schedule" data-id="${h.id}">🗑</button>
+          </div>
+        </div>`).join('')}
+      </div>`
+    : '';
+
+  $('#scheduleList').innerHTML=
+    (modelHtml||'<div class="summary">Ainda não existem horários completos.</div>')+
+    legacyHtml;
+
+  $$('.view-model-schedule').forEach(b=>b.onclick=()=>openScheduleViewerByModel(b.dataset.id));
+  $$('.edit-model-schedule').forEach(b=>b.onclick=()=>openScheduleWizard(
+    S.scheduleModels.find(x=>x.id===b.dataset.id)
+  ));
+  $$('.delete-model-schedule').forEach(b=>b.onclick=()=>deleteScheduleModel(b.dataset.id));
+
+  $$('.edit-legacy-schedule').forEach(b=>b.onclick=()=>openLegacySchedule(
+    S.schedules.find(x=>x.id===b.dataset.id)
+  ));
+  $$('.delete-legacy-schedule').forEach(b=>b.onclick=()=>del('horarios_base','id',b.dataset.id));
+}
+
+function renderEvents(){
+  $('#eventsBody').innerHTML=S.events.map(e=>`
+    <tr>
+      <td>${fmt(e.data)}</td>
+      <td>${e.hora_inicio?.slice(0,5)||''}${e.hora_fim?'–'+e.hora_fim.slice(0,5):''}</td>
+      <td>${esc(e.nome)}</td>
+      <td>${eventStatusBadge(e)}</td>
+      <td>${S.assigned.filter(a=>a.evento_id===e.id).length}</td>
+      <td>
+        <div class="event-export-menu">
+          <button class="export-btn export-csv" data-id="${e.id}" title="Exportar empenhados para CSV">CSV</button>
+          <button class="export-btn export-print" data-id="${e.id}" title="Imprimir ou guardar em PDF">PDF</button>
+          <button class="icon ee" data-id="${e.id}" title="Editar">✎</button>
+          <button class="icon de" data-id="${e.id}" title="Apagar">🗑</button>
+        </div>
+      </td>
+    </tr>
+  `).join('');
+
+  $$('.ee').forEach(b=>b.onclick=()=>openEventWizard(S.events.find(e=>e.id===b.dataset.id)));
+  $$('.de').forEach(b=>b.onclick=()=>deleteEvent(b.dataset.id));
+  $$('.export-csv').forEach(b=>b.onclick=()=>exportEventCsv(b.dataset.id));
+  $$('.export-print').forEach(b=>b.onclick=()=>exportEventPdf(b.dataset.id));
+}
+
+function renderHistory(){$('#historyBody').innerHTML=S.history.map(h=>`<tr><td>${new Date(h.alterado_em).toLocaleString('pt-PT')}</td><td>${esc(h.tabela)}</td><td>${esc(h.acao)}</td><td>${esc(h.registo_id||'')}</td></tr>`).join('')}
+
+async function openProfile(personId){
+  const p=S.people.find(x=>x.id===personId);
+  if(!p)return;
+
+  const personConstraints=S.constraints
+    .filter(c=>c.pessoa_id===personId)
+    .sort((a,b)=>String(b.data_inicio).localeCompare(String(a.data_inicio)));
+
+  const personAssigned=S.assigned.filter(a=>a.pessoa_id===personId);
+  const eventIds=new Set(personAssigned.map(a=>a.evento_id));
+  const personEvents=S.events
+    .filter(e=>eventIds.has(e.id) && !eventIsCancelled(e))
+    .sort((a,b)=>(b.data+b.hora_inicio).localeCompare(a.data+a.hora_inicio));
+
+  const currentConstraints=personConstraints.filter(c=>{
+    const d=today();
+    return c.data_inicio<=d&&c.data_fim>=d;
+  });
+
+  const initials=p.nome
+    .split(/\s+/)
+    .filter(Boolean)
+    .slice(0,2)
+    .map(x=>x[0])
+    .join('')
+    .toUpperCase();
+
+  const sexLabel=p.sexo==='F'?'Feminino':p.sexo==='M'?'Masculino':'Por preencher';
+
+  $('#profileBody').innerHTML=`
+    <div class="profile-hero">
+      <div class="profile-avatar">${esc(initials)}</div>
+      <div>
+        <h2>${esc(p.nome)}</h2>
+        <p>${esc(p.posto||'')} · Nº ${esc(p.numero_corpo||'—')}</p>
+        <p>${esc(p.ramo)} · ${esc(p.curso)} · ${p.ano||'—'}º ano</p>
+      </div>
+      <button class="secondary" id="profileEditBtn">Editar ficha</button>
+    </div>
+
+    <div class="profile-stats">
+      <div class="profile-stat"><span>Eventos em que participou</span><strong>${personEvents.length}</strong></div>
+      <div class="profile-stat"><span>Constrangimentos</span><strong>${personConstraints.length}</strong></div>
+      <div class="profile-stat"><span>Idade</span><strong>${p.idade??'—'}</strong></div>
+      <div class="profile-stat"><span>Ativos agora</span><strong>${currentConstraints.length}</strong></div>
+    </div>
+
+    <div class="profile-grid">
+      <div class="profile-section">
+        <h4>Dados pessoais</h4>
+        <div class="profile-list">
+          <div class="profile-list-item"><span>Origem</span><b>${p.integra_equipa===false?'Pessoa externa':'Equipa'}</b></div>
+          <div class="profile-list-item"><span>Função</span><b>${esc(p.funcao||'—')}</b></div>
+          <div class="profile-list-item"><span>Localidade</span><b>${esc(p.localidade||'Por preencher')}</b></div>
+          <div class="profile-list-item"><span>Sexo</span><b>${esc(sexLabel)}</b></div>
+          <div class="profile-list-item"><span>Curso</span><b>${esc(p.ramo)} · ${esc(p.curso)}</b></div>
+          <div class="profile-list-item"><span>Ano</span><b>${p.ano?`${p.ano}º`:'—'}</b></div>
+          <div class="profile-list-item"><span>Posto</span><b>${esc(p.posto||'—')}</b></div>
+        </div>
+      </div>
+
+      <div class="profile-section">
+        <h4>Constrangimentos recentes</h4>
+        ${
+          personConstraints.length
+          ? `<div class="profile-list">${personConstraints.slice(0,6).map(c=>`
+              <div class="profile-list-item">
+                <span>${esc(c.tipo)}${c.observacao?` · ${esc(c.observacao)}`:''}</span>
+                <b>${fmt(c.data_inicio)} → ${fmt(c.data_fim)}</b>
+              </div>
+            `).join('')}</div>`
+          : '<div class="profile-empty">Sem constrangimentos registados.</div>'
+        }
+      </div>
+
+      <div class="profile-section full">
+        <h4>Eventos em que foi empenhado</h4>
+        ${
+          personEvents.length
+          ? `<div class="profile-list">${personEvents.slice(0,10).map(e=>`
+              <div class="profile-list-item">
+                <span>${esc(e.nome)}</span>
+                <b>${fmt(e.data)} · ${esc(e.hora_inicio?.slice(0,5)||'')}</b>
+              </div>
+            `).join('')}</div>`
+          : '<div class="profile-empty">Ainda não participou em eventos registados.</div>'
+        }
+      </div>
+    </div>
+  `;
+
+  $('#profileEditBtn').onclick=()=>{
+    $('#profileModal').close();
+    openPerson(p);
+  };
+
+  $('#profileModal').showModal();
+}
+
+function eventAssignedPeople(eventId){
+  const ids=new Set(
+    S.assigned
+      .filter(a=>a.evento_id===eventId)
+      .map(a=>a.pessoa_id)
+  );
+
+  return S.people
+    .filter(p=>ids.has(p.id))
+    .sort((a,b)=>{
+      const an=Number(a.numero_corpo),bn=Number(b.numero_corpo);
+      if(!Number.isNaN(an)&&!Number.isNaN(bn)) return an-bn;
+      return a.nome.localeCompare(b.nome,'pt');
+    });
+}
+
+function csvEscape(value){
+  const s=String(value??'');
+  if(/[;"\n\r]/.test(s)) return `"${s.replaceAll('"','""')}"`;
+  return s;
+}
+
+function safeFileName(value){
+  return String(value||'evento')
+    .normalize('NFD')
+    .replace(/[\u0300-\u036f]/g,'')
+    .replace(/[^a-zA-Z0-9_-]+/g,'_')
+    .replace(/^_+|_+$/g,'')
+    .slice(0,80) || 'evento';
+}
+
+function downloadText(filename,text,type='text/plain;charset=utf-8'){
+  const blob=new Blob(['\ufeff',text],{type});
+  const url=URL.createObjectURL(blob);
+  const a=document.createElement('a');
+  a.href=url;
+  a.download=filename;
+  document.body.appendChild(a);
+  a.click();
+  a.remove();
+  setTimeout(()=>URL.revokeObjectURL(url),1000);
+}
+
+function exportEventCsv(eventId){
+  const e=S.events.find(x=>x.id===eventId);
+  if(!e)return toast('Evento não encontrado.');
+
+  const people=eventAssignedPeople(eventId);
+
+  const rows=[
+    ['Evento',e.nome],
+    ['Data',fmt(e.data)],
+    ['Hora início',e.hora_inicio?.slice(0,5)||''],
+    ['Hora fim',e.hora_fim?.slice(0,5)||''],
+    ['Total empenhados',people.length],
+    [],
+    ['Nº Corpo','Nome','Posto','Ano','Ramo','Curso']
+  ];
+
+  people.forEach(p=>{
+    rows.push([
+      p.numero_corpo||'',
+      p.nome||'',
+      p.posto||'',
+      p.ano||'',
+      p.ramo||'',
+      p.curso||''
+    ]);
+  });
+
+  const csv=rows.map(r=>r.map(csvEscape).join(';')).join('\r\n');
+  const filename=`${safeFileName(e.nome)}_${e.data}_empenhados.csv`;
+  downloadText(filename,csv,'text/csv;charset=utf-8');
+  toast(`CSV exportado: ${people.length} empenhado(s).`);
+}
+
+function exportEventPdf(eventId){
+  const e=S.events.find(x=>x.id===eventId);
+  if(!e)return toast('Evento não encontrado.');
+
+  const people=eventAssignedPeople(eventId);
+
+  const rows=people.length
+    ? people.map((p,i)=>`
+        <tr>
+          <td>${i+1}</td>
+          <td>${esc(p.numero_corpo||'—')}</td>
+          <td>${esc(p.nome)}</td>
+          <td>${esc(p.posto||'')}</td>
+          <td>${p.ano||''}</td>
+          <td>${esc(p.ramo||'')}</td>
+          <td>${esc(p.curso||'')}</td>
+        </tr>
+      `).join('')
+    : '<tr><td colspan="7">Sem pessoas empenhadas.</td></tr>';
+
+  const w=window.open('','_blank','width=1100,height=800');
+  if(!w)return toast('O browser bloqueou a janela de impressão.');
+
+  w.document.write(`<!doctype html>
+<html lang="pt-PT">
+<head>
+<meta charset="utf-8">
+<title>${esc(e.nome)} — Empenhados</title>
+<style>
+  body{font-family:Arial,sans-serif;color:#111;margin:32px}
+  h1{margin:0 0 6px;font-size:24px}
+  .meta{margin-bottom:22px;color:#444}
+  .meta span{margin-right:18px}
+  table{width:100%;border-collapse:collapse}
+  th,td{border:1px solid #bbb;padding:8px 9px;text-align:left;font-size:12px}
+  th{background:#f0f0f0}
+  .footer{margin-top:18px;font-size:11px;color:#666}
+  @media print{
+    body{margin:14mm}
+    .no-print{display:none}
+  }
+</style>
+</head>
+<body>
+  <button class="no-print" onclick="window.print()" style="float:right;padding:8px 12px">Imprimir / Guardar PDF</button>
+  <h1>${esc(e.nome)}</h1>
+  <div class="meta">
+    <span><b>Data:</b> ${fmt(e.data)}</span>
+    <span><b>Hora:</b> ${esc(e.hora_inicio?.slice(0,5)||'')}${e.hora_fim?'–'+esc(e.hora_fim.slice(0,5)):''}</span>
+    <span><b>Empenhados:</b> ${people.length}</span>
+  </div>
+
+  <table>
+    <thead>
+      <tr><th>#</th><th>Nº Corpo</th><th>Nome</th><th>Posto</th><th>Ano</th><th>Ramo</th><th>Curso</th></tr>
+    </thead>
+    <tbody>${rows}</tbody>
+  </table>
+
+  ${e.observacao?`<p><b>Observação:</b> ${esc(e.observacao)}</p>`:''}
+  <div class="footer">Gerado por A Minha Equipa</div>
+</body>
+</html>`);
+  w.document.close();
+  w.focus();
+}
+
 function renderHome(){
   const d=today();
   const active=S.people.filter(p=>p.ativo!==false && p.integra_equipa!==false);

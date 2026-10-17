@@ -14,7 +14,7 @@ let peopleGroupPreset='';
 let peopleSort={key:'nome',dir:1};
 let peopleFilters={numero_corpo:'',nome:'',posto:'',ano:'',ramo:'',curso:'',idade:'',localidade:''};
 
-let availSort={key:'nome',dir:1};
+let availSorts=[{key:'nome',dir:1}];
 let availColumnFilters={
   numero_corpo:'',
   nome:'',
@@ -659,27 +659,41 @@ function filterAvailability(){
   });
 
   rows=[...rows].sort((a,b)=>{
-    let av=a[availSort.key], bv=b[availSort.key];
+    for(const sort of availSorts){
+      let av=a[sort.key], bv=b[sort.key];
 
-    if(availSort.key==='detalhe_aula'){
-      av=a.tem_alerta_aula ? (a.detalhe_aula||'Aula') : '';
-      bv=b.tem_alerta_aula ? (b.detalhe_aula||'Aula') : '';
+      if(sort.key==='detalhe_aula'){
+        av=a.tem_alerta_aula ? (a.detalhe_aula||'Aula') : '';
+        bv=b.tem_alerta_aula ? (b.detalhe_aula||'Aula') : '';
+      }
+
+      let cmp=0;
+
+      if(sort.key==='ano'){
+        cmp=(Number(av)||0)-(Number(bv)||0);
+      }else if(sort.key==='numero_corpo'){
+        const an=Number(av),bn=Number(bv);
+        if(!Number.isNaN(an)&&!Number.isNaN(bn)){
+          cmp=an-bn;
+        }else{
+          cmp=String(av??'').localeCompare(
+            String(bv??''),
+            'pt',
+            {numeric:true,sensitivity:'base'}
+          );
+        }
+      }else{
+        cmp=String(av??'').localeCompare(
+          String(bv??''),
+          'pt',
+          {numeric:true,sensitivity:'base'}
+        );
+      }
+
+      if(cmp!==0) return cmp*sort.dir;
     }
 
-    if(availSort.key==='ano'){
-      return ((Number(av)||0)-(Number(bv)||0))*availSort.dir;
-    }
-
-    if(availSort.key==='numero_corpo'){
-      const an=Number(av),bn=Number(bv);
-      if(!Number.isNaN(an)&&!Number.isNaN(bn)) return (an-bn)*availSort.dir;
-    }
-
-    return String(av??'').localeCompare(
-      String(bv??''),
-      'pt',
-      {numeric:true,sensitivity:'base'}
-    )*availSort.dir;
+    return 0;
   });
 
   const av=rows.filter(r=>r.estado==='DISPONIVEL').length;
@@ -703,12 +717,20 @@ function filterAvailability(){
   </tr>`).join('');
 
   $$('#availTable .sort-head').forEach(btn=>{
-    btn.classList.toggle('active',btn.dataset.sort===availSort.key);
+    const index=availSorts.findIndex(s=>s.key===btn.dataset.sort);
+    const active=index!==-1;
+    btn.classList.toggle('active',active);
+
     const span=btn.querySelector('span');
-    span.textContent=
-      btn.dataset.sort===availSort.key
-      ? (availSort.dir===1?'↑':'↓')
-      : '↕';
+
+    if(active){
+      const sort=availSorts[index];
+      span.textContent=`${sort.dir===1?'↑':'↓'}${index+1}`;
+      btn.title=`${index+1}.º critério de ordenação`;
+    }else{
+      span.textContent='↕';
+      btn.title='Adicionar como critério principal';
+    }
   });
 }
 function renderPeople(){
@@ -2624,12 +2646,20 @@ $$('#availTable [data-colfilter]').forEach(el=>{
 $$('#availTable .sort-head').forEach(btn=>{
   btn.addEventListener('click',()=>{
     const key=btn.dataset.sort;
-    if(availSort.key===key){
-      availSort.dir*=-1;
+    const index=availSorts.findIndex(s=>s.key===key);
+
+    if(index===0){
+      // Se já for o critério principal, alterna ascendente/descendente.
+      availSorts[0].dir*=-1;
+    }else if(index>0){
+      // Se já existir como critério secundário, passa a principal.
+      const [existing]=availSorts.splice(index,1);
+      availSorts.unshift(existing);
     }else{
-      availSort.key=key;
-      availSort.dir=1;
+      // Nova coluna: passa a principal e mantém as anteriores como desempate.
+      availSorts.unshift({key,dir:1});
     }
+
     filterAvailability();
   });
 });
@@ -2637,7 +2667,7 @@ $$('#availTable .sort-head').forEach(btn=>{
 $('#resetAvailFiltersBtn').onclick=()=>{
   $('#availFilter').value='all';
   $$('#availTable [data-colfilter]').forEach(el=>el.value='');
-  availSort={key:'nome',dir:1};
+  availSorts=[{key:'nome',dir:1}];
   filterAvailability();
 };$('#personSearch').oninput=renderPeople;$('#newEventBtn').onclick=()=>openEventWizard();$('#newExternalPersonBtn').onclick=()=>openPerson(null,true);$('#newPersonBtn').onclick=()=>openPerson();
 $$('#constraintsTable [data-cfilter]').forEach(el=>{

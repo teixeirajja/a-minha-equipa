@@ -706,3 +706,10 @@ label small.muted{font-weight:400;margin-top:-2px;color:var(--muted)}
 
 #pdfSortDialog{width:min(720px,calc(100vw - 24px))}
 #pdfSortDialog .profile-body{padding:16px}
+
+/* V5.13 — ordenação multi-critério estilo Excel */
+#availTable .sort-head.active span{
+  display:inline-block;
+  min-width:18px;
+  font-weight:800;
+}

@@ -1029,3 +1029,26 @@ O Resumo da Turma tem agora um painel de alertas que deteta automaticamente:
 Os alertas são informativos e não bloqueiam a criação de avaliações.
 
 Não requer SQL novo.
+
+
+## V6.11 — Index com resumos operacionais
+
+O ecrã de escolha de módulos continua simples, mas cada cartão passa a mostrar informação útil antes de entrar.
+
+### A Minha Equipa
+- total de elementos;
+- eventos nos próximos 7 dias;
+- indisponíveis amanhã, usando a mesma consulta de disponibilidade do módulo.
+
+### A Minha Turma
+- total de elementos;
+- próxima avaliação, com data e cadeira;
+- número de avaliações nos próximos 7 dias.
+
+### Interface
+- hover específico para cada módulo, com maior destaque visual;
+- ícone reage ligeiramente ao hover;
+- rodapé discreto com `QGApp · v6.11`;
+- hora a que os dados foram carregados.
+
+Não requer SQL novo.

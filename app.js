@@ -24,6 +24,7 @@ let classScheduleIndex=0;
 let classAgendaMonth=new Date(new Date().getFullYear(),new Date().getMonth(),1);
 let classAgendaView='calendar';
 let classAgendaFilters={subject:'',type:'',person:'',group:''};
+let moduleDataLoadedAt=null;
 
 let classSorts=[{key:'nome',dir:1}];
 let classFilters={numero_corpo:'',nome:'',posto:'',ano:'',ramo:'',nim:''};
@@ -171,6 +172,7 @@ async function load(){
     history,
     evaluations
   });
+  moduleDataLoadedAt=new Date();
   render();
 }
 function render(){renderHome();renderPeople();renderExternalPeople();renderConstraints();renderSchedules();renderEvents();renderHistory();renderClassModule();renderModuleCounts()}
@@ -184,11 +186,106 @@ function tmPeople(){
   );
 }
 
-function renderModuleCounts(){
+function indexDatePlusDays(days){
+  const base=new Date();
+  base.setHours(12,0,0,0);
+  base.setDate(base.getDate()+days);
+  return [
+    base.getFullYear(),
+    String(base.getMonth()+1).padStart(2,'0'),
+    String(base.getDate()).padStart(2,'0')
+  ].join('-');
+}
+
+function shortIndexDate(iso){
+  if(!iso)return '—';
+  const d=new Date(`${iso}T12:00:00`);
+  return new Intl.DateTimeFormat('pt-PT',{
+    day:'2-digit',
+    month:'short'
+  }).format(d).replace('.','');
+}
+
+async function renderModuleCounts(){
   const team=S.people.filter(p=>p.ativo!==false && p.integra_equipa!==false);
   const tm=tmPeople();
+
   if($('#moduleTeamCount'))$('#moduleTeamCount').textContent=team.length;
   if($('#moduleClassCount'))$('#moduleClassCount').textContent=tm.length;
+
+  const todayIso=today();
+  const end7Iso=indexDatePlusDays(7);
+
+  // EQUIPA — próximos eventos nos 7 dias seguintes.
+  const upcomingEvents=S.events.filter(e=>
+    !eventIsCancelled(e) &&
+    String(e.data||'')>=todayIso &&
+    String(e.data||'')<=end7Iso
+  );
+
+  if($('#moduleTeamUpcomingEvents')){
+    $('#moduleTeamUpcomingEvents').textContent=upcomingEvents.length;
+  }
+
+  // EQUIPA — disponibilidade de amanhã pela mesma RPC usada pelo módulo.
+  const tomorrow=indexDatePlusDays(1);
+  const unavailableTarget=$('#moduleTeamTomorrowUnavailable');
+
+  if(unavailableTarget){
+    unavailableTarget.textContent='…';
+
+    try{
+      const rows=await checkAvailability(tomorrow);
+      const teamIds=new Set(team.map(p=>String(p.id)));
+
+      const unavailable=rows.filter(r=>{
+        const rowId=String(r.pessoa_id||r.id||'');
+        const belongs=rowId
+          ? teamIds.has(rowId)
+          : team.some(p=>
+              String(p.numero_corpo||'')===String(r.numero_corpo||'')
+            );
+
+        return belongs && r.estado==='INDISPONIVEL';
+      }).length;
+
+      unavailableTarget.textContent=unavailable;
+    }catch{
+      unavailableTarget.textContent='—';
+    }
+  }
+
+  // TURMA — avaliações únicas, para não contar a mesma prova uma vez por pessoa.
+  const classEvaluations=aggregateAgendaEvaluations(classEvaluationRows())
+    .filter(ev=>String(ev.data||'')>=todayIso)
+    .sort((a,b)=>
+      String(a.data||'').localeCompare(String(b.data||'')) ||
+      String(a.cadeira||'').localeCompare(String(b.cadeira||''),'pt')
+    );
+
+  const nextEvaluation=classEvaluations[0]||null;
+  const weekEvaluations=classEvaluations.filter(ev=>
+    String(ev.data||'')<=end7Iso
+  );
+
+  if($('#moduleClassNextEvaluation')){
+    $('#moduleClassNextEvaluation').textContent=nextEvaluation
+      ? `${shortIndexDate(nextEvaluation.data)} · ${nextEvaluation.cadeira}`
+      : 'Sem avaliações';
+  }
+
+  if($('#moduleClassWeekEvaluations')){
+    $('#moduleClassWeekEvaluations').textContent=weekEvaluations.length;
+  }
+
+  // Rodapé: hora real em que os dados foram carregados nesta sessão.
+  const footer=$('#moduleDataUpdated');
+  if(footer && moduleDataLoadedAt){
+    footer.textContent=`Dados carregados às ${moduleDataLoadedAt.toLocaleTimeString('pt-PT',{
+      hour:'2-digit',
+      minute:'2-digit'
+    })}`;
+  }
 }
 
 function showModuleSelector(){

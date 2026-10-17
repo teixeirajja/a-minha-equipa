@@ -5,7 +5,7 @@
   <meta name="viewport" content="width=device-width,initial-scale=1">
   <title>QGApp — A Minha Turma</title>
   <link rel="icon" type="image/png" href="turma-favicon.png">
-  <link rel="stylesheet" href="styles.css?v=6.10">
+  <link rel="stylesheet" href="styles.css?v=6.11">
 </head>
 <body data-qg-page="class">
 <div id="toast" class="toast hidden"></div>
@@ -44,7 +44,11 @@
         <div class="module-card-text">
           <h3>A Minha Equipa</h3>
           <p>Disponibilidade, eventos, constrangimentos e horários.</p>
-          <span><strong id="moduleTeamCount">—</strong> elementos da equipa</span>
+          <div class="module-card-summary">
+            <span><strong id="moduleTeamCount">—</strong> elementos</span>
+            <span><strong id="moduleTeamUpcomingEvents">—</strong> eventos · 7 dias</span>
+            <span><strong id="moduleTeamTomorrowUnavailable">—</strong> indisponíveis amanhã</span>
+          </div>
         </div>
       </button>
 
@@ -53,10 +57,20 @@
         <div class="module-card-text">
           <h3>A Minha Turma</h3>
           <p>Área dedicada à turma TM do 6.º ano.</p>
-          <span><strong id="moduleClassCount">—</strong> elementos TM · 6.º ano</span>
+          <div class="module-card-summary">
+            <span><strong id="moduleClassCount">—</strong> elementos</span>
+            <span><strong id="moduleClassNextEvaluation">—</strong> próxima avaliação</span>
+            <span><strong id="moduleClassWeekEvaluations">—</strong> avaliações · 7 dias</span>
+          </div>
         </div>
       </button>
     </div>
+  </div>
+
+  <div class="module-index-footer">
+    <span>QGApp · v6.11</span>
+    <span class="module-footer-dot">•</span>
+    <span id="moduleDataUpdated">Dados carregados agora</span>
   </div>
 </section>
 
@@ -975,6 +989,6 @@
   <div id="profileBody" class="profile-body"></div>
 </dialog>
 
-<script type="module" src="app.js?v=6.10"></script>
+<script type="module" src="app.js?v=6.11"></script>
 </body>
 </html>

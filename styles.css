@@ -2144,3 +2144,98 @@ body{
     flex-direction:column;
   }
 }
+
+
+/* V6.11 — seletor de módulos com resumo operacional */
+.module-card-summary{
+  display:flex;
+  flex-wrap:wrap;
+  justify-content:center;
+  gap:7px;
+  margin-top:4px;
+}
+
+.module-card-summary > span{
+  display:inline-flex;
+  align-items:center;
+  gap:4px;
+  min-height:30px;
+  padding:5px 9px;
+  border:1px solid #dce4e0;
+  border-radius:999px;
+  background:#f7f9f8;
+  color:#65716b;
+  font-size:11px;
+  line-height:1.15;
+}
+
+.module-card-summary strong{
+  font-size:13px;
+  color:#1d2c23;
+}
+
+/* O texto da próxima avaliação pode ser mais comprido. */
+#moduleClassNextEvaluation{
+  max-width:165px;
+  overflow:hidden;
+  text-overflow:ellipsis;
+  white-space:nowrap;
+}
+
+.team-module-card:hover{
+  border-color:#5790b5;
+  box-shadow:
+    0 24px 58px rgba(12,42,62,.22),
+    0 0 0 3px rgba(73,139,181,.10);
+}
+
+.class-module-card:hover{
+  border-color:#b69a4b;
+  box-shadow:
+    0 24px 58px rgba(57,45,13,.22),
+    0 0 0 3px rgba(188,155,65,.12);
+}
+
+.module-card:hover .module-card-logo{
+  transform:scale(1.035);
+}
+
+.module-card-logo{
+  transition:transform .16s ease;
+}
+
+.module-card:focus-visible{
+  outline:3px solid rgba(96,151,188,.38);
+  outline-offset:4px;
+}
+
+.module-index-footer{
+  position:absolute;
+  left:0;
+  right:0;
+  bottom:15px;
+  z-index:2;
+  display:flex;
+  justify-content:center;
+  align-items:center;
+  gap:8px;
+  color:rgba(255,255,255,.62);
+  font-size:11px;
+  pointer-events:none;
+}
+
+.module-footer-dot{
+  opacity:.5;
+}
+
+@media(max-width:850px){
+  .module-index-footer{
+    position:relative;
+    bottom:auto;
+    padding:18px 0 10px;
+  }
+
+  .module-card-summary{
+    max-width:420px;
+  }
+}

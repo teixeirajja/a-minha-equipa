@@ -827,9 +827,7 @@ function openPerson(p=null,forceExternal=false){
         <input
           name="nim"
           inputmode="numeric"
-          maxlength="8"
-          pattern="[0-9]{8}"
-          placeholder="8 dígitos"
+          placeholder="NIM"
           value="${esc(p?.nim||'')}">
       </label>
 
@@ -878,10 +876,6 @@ function openPerson(p=null,forceExternal=false){
         integra_equipa:f.get('integra_equipa')==='true',
         funcao:f.get('funcao')||null
       };
-
-      if(x.nim && !/^\d{8}$/.test(x.nim)){
-        return toast('O NIM tem de ter exatamente 8 números.');
-      }
 
       const r=p
         ? await supabase.from('pessoas').update(x).eq('id',p.id)

@@ -424,14 +424,15 @@ function exportEventPdf(eventId){
   const rows=people.length
     ? people.map((p,i)=>`
         <tr>
-          <td>${i+1}</td>
-          <td>${esc(p.numero_corpo||'—')}</td>
-          <td>${esc(p.nome)}</td>
-          <td>${esc(p.posto||'')}</td>
-          <td>${p.ano||''}</td>
-          <td>${esc(p.ramo||'')}</td>
-          <td>${esc(p.curso||'')}</td>
-        </tr>
+        <td>${i+1}</td>
+        <td>${esc(p.ano||'')}</td>
+        <td>${esc(p.posto||'')}</td>
+        <td>${esc(p.numero_corpo||'')}</td>
+        <td>${esc(p.nome||'')}</td>
+        <td>${esc(p.nim||'')}</td>
+        <td>${esc(p.ramo||'')}</td>
+        <td>${esc(p.curso||'')}</td>
+      </tr>
       `).join('')
     : '<tr><td colspan="7">Sem pessoas empenhadas.</td></tr>';
 

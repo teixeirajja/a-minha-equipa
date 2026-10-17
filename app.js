@@ -290,6 +290,7 @@ async function openProfile(personId){
         <div class="profile-list">
           <div class="profile-list-item"><span>Origem</span><b>${p.integra_equipa===false?'Pessoa externa':'Equipa'}</b></div>
           <div class="profile-list-item"><span>Função</span><b>${esc(p.funcao||'—')}</b></div>
+          <div class="profile-list-item"><span>NIM</span><b>${esc(p.nim||'—')}</b></div>
           <div class="profile-list-item"><span>Localidade</span><b>${esc(p.localidade||'Por preencher')}</b></div>
           <div class="profile-list-item"><span>Sexo</span><b>${esc(sexLabel)}</b></div>
           <div class="profile-list-item"><span>Curso</span><b>${esc(p.ramo)} · ${esc(p.curso)}</b></div>
@@ -392,15 +393,17 @@ function exportEventCsv(eventId){
     ['Hora fim',e.hora_fim?.slice(0,5)||''],
     ['Total empenhados',people.length],
     [],
-    ['Nº Corpo','Nome','Posto','Ano','Ramo','Curso']
+    ['#','Ano','Posto','Nº Corpo','Nome','NIM','Ramo','Curso']
   ];
 
   people.forEach(p=>{
     rows.push([
+      index+1,
+      p.ano||'',
+      p.posto||'',
       p.numero_corpo||'',
       p.nome||'',
-      p.posto||'',
-      p.ano||'',
+      p.nim||'',
       p.ramo||'',
       p.curso||''
     ]);
@@ -466,7 +469,7 @@ function exportEventPdf(eventId){
 
   <table>
     <thead>
-      <tr><th>#</th><th>Nº Corpo</th><th>Nome</th><th>Posto</th><th>Ano</th><th>Ramo</th><th>Curso</th></tr>
+      <tr><th>#</th><th>Ano</th><th>Posto</th><th>Nº Corpo</th><th>Nome</th><th>NIM</th><th>Ramo</th><th>Curso</th></tr>
     </thead>
     <tbody>${rows}</tbody>
   </table>
@@ -820,6 +823,16 @@ function openPerson(p=null,forceExternal=false){
         <input name="idade" type="number" min="15" max="100" value="${p?.idade??''}">
       </label>
 
+      <label>NIM
+        <input
+          name="nim"
+          inputmode="numeric"
+          maxlength="8"
+          pattern="[0-9]{8}"
+          placeholder="8 dígitos"
+          value="${esc(p?.nim||'')}">
+      </label>
+
       <label>Sexo
         <select name="sexo">
           <option value="" ${!p?.sexo?'selected':''}>Por preencher</option>
@@ -859,11 +872,16 @@ function openPerson(p=null,forceExternal=false){
         ramo:f.get('ramo'),
         curso:f.get('curso')||null,
         idade:f.get('idade')?Number(f.get('idade')):null,
+        nim:f.get('nim')||null,
         sexo:f.get('sexo')||null,
         localidade:f.get('localidade')||null,
         integra_equipa:f.get('integra_equipa')==='true',
         funcao:f.get('funcao')||null
       };
+
+      if(x.nim && !/^\d{8}$/.test(x.nim)){
+        return toast('O NIM tem de ter exatamente 8 números.');
+      }
 
       const r=p
         ? await supabase.from('pessoas').update(x).eq('id',p.id)

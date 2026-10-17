@@ -5,7 +5,7 @@ const supabase=createClient(
   'sb_publishable_LR4VwEg_DQLmMhS7C7MZUA_ZTKk4KVl'
 );
 const $=s=>document.querySelector(s), $$=s=>[...document.querySelectorAll(s)];
-let S={people:[],constraints:[],schedules:[],schedulePeople:[],scheduleModels:[],scheduleModelPeople:[],events:[],assigned:[],history:[],availability:[]};
+let S={people:[],constraints:[],schedules:[],schedulePeople:[],scheduleModels:[],scheduleModelPeople:[],events:[],assigned:[],manualAvailability:[],history:[],availability:[]};
 let constraintSort={key:'inicio',dir:-1};
 let constraintFilters={pessoa:'',tipo:'',estado:'',inicio:'',fim:'',observacao:''};
 let expandedConstraints=new Set();
@@ -32,7 +32,7 @@ const day=n=>['','Segunda','Terça','Quarta','Quinta','Sexta','Sábado','Domingo
 function toast(x){$('#toast').textContent=x;$('#toast').classList.remove('hidden');setTimeout(()=>$('#toast').classList.add('hidden'),2200)}
 async function sel(t,c='*'){const {data,error}=await supabase.from(t).select(c);if(error)throw error;return data||[]}
 async function load(){
-  const [people,constraints,schedules,sp,scheduleModels,scheduleModelPeople,events,assigned,history]=await Promise.all([
+  const [people,constraints,schedules,sp,scheduleModels,scheduleModelPeople,events,assigned,manualAvailability,history]=await Promise.all([
     sel('pessoas'),
     sel('constrangimentos'),
     sel('horarios_base'),
@@ -41,6 +41,7 @@ async function load(){
     sel('horario_modelo_pessoas'),
     sel('eventos'),
     sel('evento_empenhados'),
+    sel('evento_disponibilidade_manual'),
     supabase.from('historico').select('*').order('alterado_em',{ascending:false}).limit(100).then(r=>{if(r.error)throw r.error;return r.data||[]})
   ]);
   Object.assign(S,{
@@ -52,6 +53,7 @@ async function load(){
     scheduleModelPeople,
     events:events.sort((a,b)=>(a.data+a.hora_inicio).localeCompare(b.data+b.hora_inicio)),
     assigned,
+    manualAvailability,
     history
   });
   render();
@@ -1830,6 +1832,55 @@ function renderWizardPeople(){
   $$('.assignCheck').forEach(c=>c.onchange=()=>{c.checked?W.selected.add(c.value):W.selected.delete(c.value);$('#weCount').textContent=`${W.selected.size} empenhado(s)`});
 }
 
+
+let participantManualOverrides=new Map();
+
+function effectiveParticipantState(personId){
+  const auto=W.availability.find(x=>x.pessoa_id===personId);
+  const manual=participantManualOverrides.get(personId);
+
+  if(manual?.estado){
+    return {
+      estado:manual.estado,
+      motivo:manual.motivo||'Decisão manual para este evento',
+      manual:true
+    };
+  }
+
+  return {
+    estado:auto?.estado||'DISPONIVEL',
+    motivo:auto?.motivo||null,
+    manual:false
+  };
+}
+
+async function saveParticipantManualOverrides(eventId){
+  const {error:deleteError}=await supabase
+    .from('evento_disponibilidade_manual')
+    .delete()
+    .eq('evento_id',eventId);
+
+  if(deleteError)throw deleteError;
+
+  const payload=[...participantManualOverrides.entries()]
+    .filter(([,x])=>x?.estado)
+    .map(([pessoa_id,x])=>({
+      evento_id:eventId,
+      pessoa_id,
+      estado:x.estado,
+      motivo:x.motivo||null,
+      atualizado_em:new Date().toISOString()
+    }));
+
+  if(payload.length){
+    const {error}=await supabase
+      .from('evento_disponibilidade_manual')
+      .insert(payload);
+
+    if(error)throw error;
+  }
+}
+
 let participantTempSelection=new Set();
 
 function participantRows(){
@@ -1841,9 +1892,8 @@ function participantRows(){
     if(group==='equipa' && p.integra_equipa===false)return false;
     if(group==='externos' && p.integra_equipa!==false)return false;
 
-    const a=W.availability.find(x=>x.pessoa_id===p.id);
-
-    if(state && a?.estado!==state)return false;
+    const effective=effectiveParticipantState(p.id);
+    if(state && effective.estado!==state)return false;
 
     if(q){
       const values=[
@@ -1859,26 +1909,26 @@ function participantRows(){
 
 function renderParticipantsSummary(){
   const selected=[...participantTempSelection];
-  const infos=selected
-    .map(id=>W.availability.find(a=>a.pessoa_id===id))
-    .filter(Boolean);
+  const states=selected.map(id=>effectiveParticipantState(id));
 
-  const unavailable=infos.filter(a=>a.estado==='INDISPONIVEL').length;
-  const pending=infos.filter(a=>a.estado==='POR_CONFIRMAR').length;
+  const unavailable=states.filter(x=>x.estado==='INDISPONIVEL').length;
+  const pending=states.filter(x=>x.estado==='POR_CONFIRMAR').length;
   const externals=selected
     .map(id=>S.people.find(p=>p.id===id))
     .filter(p=>p?.integra_equipa===false).length;
+  const manual=selected.filter(id=>participantManualOverrides.has(id)).length;
 
   $('#participantsSummary').textContent=
-    `${selected.length} selecionado(s) · ${externals} externo(s) · ${unavailable} indisponível(eis) · ${pending} por confirmar`;
+    `${selected.length} selecionado(s) · ${externals} externo(s) · ${unavailable} indisponível(eis) · ${pending} por confirmar · ${manual} decisão(ões) manual(ais)`;
 }
 
 function renderParticipantsDialog(){
   const rows=participantRows();
 
   $('#participantsBody').innerHTML=rows.map(p=>{
-    const a=W.availability.find(x=>x.pessoa_id===p.id);
-    const state=a?.estado||'—';
+    const auto=W.availability.find(x=>x.pessoa_id===p.id);
+    const manual=participantManualOverrides.get(p.id);
+    const effective=effectiveParticipantState(p.id);
 
     return `<tr>
       <td>
@@ -1896,9 +1946,31 @@ function renderParticipantsDialog(){
         </div>
       </td>
       <td>${p.ano||'—'} · ${esc(p.curso||'—')}</td>
-      <td>${badge(state)}</td>
-      <td class="participant-reason">${esc(a?.motivo||'—')}</td>
-      <td class="participant-class">${a?.tem_alerta_aula?esc(a?.detalhe_aula||'Aula'):'—'}</td>
+      <td>
+        <div class="participant-auto-state">
+          ${badge(effective.estado)}
+          <small>${effective.manual?'Manual':'Automático'}</small>
+        </div>
+      </td>
+      <td class="manual-availability-cell">
+        <select class="manual-availability-select" data-person="${p.id}">
+          <option value="" ${!manual?.estado?'selected':''}>Automático</option>
+          <option value="DISPONIVEL" ${manual?.estado==='DISPONIVEL'?'selected':''}>Disponível</option>
+          <option value="INDISPONIVEL" ${manual?.estado==='INDISPONIVEL'?'selected':''}>Indisponível</option>
+          <option value="POR_CONFIRMAR" ${manual?.estado==='POR_CONFIRMAR'?'selected':''}>Por confirmar</option>
+        </select>
+        <input
+          class="manual-reason-input"
+          data-person="${p.id}"
+          placeholder="Motivo manual (opcional)"
+          value="${esc(manual?.motivo||'')}">
+      </td>
+      <td class="participant-reason">
+        ${esc(effective.motivo||auto?.motivo||'—')}
+      </td>
+      <td class="participant-class">
+        ${auto?.tem_alerta_aula?esc(auto?.detalhe_aula||'Aula'):'—'}
+      </td>
     </tr>`;
   }).join('');
 
@@ -1906,8 +1978,36 @@ function renderParticipantsDialog(){
     ch.checked
       ? participantTempSelection.add(ch.value)
       : participantTempSelection.delete(ch.value);
-
     renderParticipantsSummary();
+  });
+
+  $$('.manual-availability-select').forEach(sel=>sel.onchange=()=>{
+    const id=sel.dataset.person;
+    const reason=$(`.manual-reason-input[data-person="${id}"]`)?.value||'';
+
+    if(!sel.value){
+      participantManualOverrides.delete(id);
+    }else{
+      participantManualOverrides.set(id,{
+        estado:sel.value,
+        motivo:reason
+      });
+    }
+
+    renderParticipantsDialog();
+  });
+
+  $$('.manual-reason-input').forEach(inp=>inp.onchange=()=>{
+    const id=inp.dataset.person;
+    const current=participantManualOverrides.get(id);
+
+    if(current){
+      participantManualOverrides.set(id,{
+        ...current,
+        motivo:inp.value
+      });
+      renderParticipantsSummary();
+    }
   });
 
   renderParticipantsSummary();
@@ -1922,6 +2022,17 @@ async function openParticipantsDialog(){
   try{
     W.availability=await checkAvailability(d,t,W.event?.id||null);
     participantTempSelection=new Set(W.selected);
+
+    participantManualOverrides=new Map();
+
+    if(W.event?.id){
+      S.manualAvailability
+        .filter(x=>x.evento_id===W.event.id)
+        .forEach(x=>participantManualOverrides.set(x.pessoa_id,{
+          estado:x.estado,
+          motivo:x.motivo||''
+        }));
+    }
 
     $('#participantsDialogTitle').textContent=
       `Participantes — ${$('#weName').value||'Evento'}`;
@@ -1942,6 +2053,15 @@ async function openParticipantsDialog(){
 
 async function openEventWizard(e=null){
   W={event:e,availability:[],selected:new Set(e?S.assigned.filter(a=>a.evento_id===e.id).map(a=>a.pessoa_id):[])};
+  participantManualOverrides=new Map();
+  if(e?.id){
+    S.manualAvailability
+      .filter(x=>x.evento_id===e.id)
+      .forEach(x=>participantManualOverrides.set(x.pessoa_id,{
+        estado:x.estado,
+        motivo:x.motivo||''
+      }));
+  }
   $('#wizardTitle').textContent=e?'Editar evento':'Novo evento';$('#weName').value=e?.nome||'';$('#weDate').value=e?.data||'';$('#weStart').value=e?.hora_inicio?.slice(0,5)||'';$('#weEnd').value=e?.hora_fim?.slice(0,5)||'';$('#weStatus').value=e?.estado_manual||'';$('#weNote').value=e?.observacao||'';$('#weScope').value='all';updateScope();$('#wePeople').innerHTML='<p class="muted">Carrega em “Ver disponibilidade”.</p>';$('#weCount').textContent=`${W.selected.size} empenhado(s)`;$('#eventWizard').showModal();
   if(e?.data&&e?.hora_inicio)await wizardCheck();
 }
@@ -1953,7 +2073,12 @@ async function saveWizard(){
   else{const r=await supabase.from('eventos').insert(x).select().single();if(r.error)return toast(r.error.message);id=r.data.id}
   const d=await supabase.from('evento_empenhados').delete().eq('evento_id',id);if(d.error)return toast(d.error.message);
   if(W.selected.size){const r=await supabase.from('evento_empenhados').insert([...W.selected].map(pessoa_id=>({evento_id:id,pessoa_id})));if(r.error)return toast(r.error.message)}
-  $('#eventWizard').close();toast('Evento guardado. Pessoas empenhadas ficaram indisponíveis nesse período.');await load();
+  try{
+    await saveParticipantManualOverrides(id);
+  }catch(e){
+    return toast(e.message);
+  }
+  $('#eventWizard').close();toast('Evento guardado.');await load();
 }
 $('#wizardClose').onclick=$('#wizardCancel').onclick=()=>$('#eventWizard').close();$('#wizardSave').onclick=saveWizard;$('#weOpenParticipants').onclick=openParticipantsDialog;
 $('#participantsDialogClose').onclick=()=>$('#participantsDialog').close();
@@ -1965,8 +2090,9 @@ $('#participantsGroupFilter').onchange=renderParticipantsDialog;
 
 $('#participantsSelectAvailable').onclick=()=>{
   participantRows().forEach(p=>{
-    const a=W.availability.find(x=>x.pessoa_id===p.id);
-    if(a?.estado==='DISPONIVEL')participantTempSelection.add(p.id);
+    if(effectiveParticipantState(p.id).estado==='DISPONIVEL'){
+      participantTempSelection.add(p.id);
+    }
   });
   renderParticipantsDialog();
 };

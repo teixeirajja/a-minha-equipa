@@ -605,3 +605,27 @@ label small.muted{font-weight:400;margin-top:-2px;color:var(--muted)}
 @media(max-width:1000px){
   .participants-toolbar{grid-template-columns:1fr 1fr}
 }
+
+/* V5.7 — decisão manual da disponibilidade por evento */
+.manual-availability-cell{
+  min-width:210px;
+}
+.manual-availability-select,
+.manual-reason-input{
+  width:100%;
+  padding:7px 8px;
+  border-radius:8px;
+  font-size:12px;
+}
+.manual-reason-input{
+  margin-top:6px;
+}
+.participant-auto-state{
+  display:flex;
+  flex-direction:column;
+  gap:3px;
+}
+.participant-auto-state small{
+  color:var(--muted);
+  font-size:11px;
+}

@@ -22,6 +22,7 @@ let scheduleBlockSorts=[{key:'dia',dir:1},{key:'inicio',dir:1}];
 let currentScheduleViewerBlocks=[];
 let classScheduleIndex=0;
 let classAgendaMonth=new Date(new Date().getFullYear(),new Date().getMonth(),1);
+let classAgendaView='calendar';
 
 let classSorts=[{key:'nome',dir:1}];
 let classFilters={numero_corpo:'',nome:'',posto:'',ano:'',ramo:'',nim:''};
@@ -353,6 +354,18 @@ function openAgendaEvaluationEditor(defaultDate=''){
           <span id="agendaSelectedPeopleCount">0 selecionadas</span>
         </div>
 
+        <div class="agenda-group-select">
+          <span>Seleção rápida por horário</span>
+          <div class="agenda-group-buttons">
+            <button type="button" class="secondary agenda-group-btn" data-group="all">Toda a turma</button>
+            ${[1,2,3,4].map(n=>`
+              <button type="button" class="secondary agenda-group-btn" data-group="${n}">
+                TM_${n} · ${classSchedulePeopleByGroup(n).length}
+              </button>
+            `).join('')}
+          </div>
+        </div>
+
         <div class="agenda-person-picker-tools">
           <input id="agendaPersonSearch" type="search" placeholder="Pesquisar nº ou nome...">
           <button id="agendaSelectVisible" type="button" class="secondary">Selecionar visíveis</button>
@@ -474,7 +487,132 @@ function openAgendaEvaluationEditor(defaultDate=''){
     updateCount();
   };
 
+  $$('.agenda-group-btn').forEach(btn=>{
+    btn.onclick=()=>{
+      const group=btn.dataset.group;
+
+      if(group==='all'){
+        options().forEach(label=>{
+          label.querySelector('input').checked=true;
+        });
+      }else{
+        const ids=new Set(
+          classSchedulePeopleByGroup(Number(group)).map(p=>String(p.id))
+        );
+
+        options().forEach(label=>{
+          const input=label.querySelector('input');
+          if(ids.has(String(input.value)))input.checked=true;
+        });
+      }
+
+      updateCount();
+    };
+  });
+
   updateCount();
+}
+
+
+function agendaPeopleLabel(people){
+  const sorted=[...people].sort((a,b)=>
+    String(a.nome||'').localeCompare(String(b.nome||''),'pt')
+  );
+
+  if(sorted.length<=3){
+    return sorted
+      .map(p=>`${p.numero_corpo||'—'} · ${agendaShortName(p.nome)}`)
+      .join(' · ');
+  }
+
+  return `${sorted.slice(0,3)
+    .map(p=>`${p.numero_corpo||'—'} · ${agendaShortName(p.nome)}`)
+    .join(' · ')} · +${sorted.length-3}`;
+}
+
+function renderClassAgendaList(all){
+  const target=$('#classAgendaList');
+  if(!target)return;
+
+  const todayIso=today();
+  const upcoming=[...all]
+    .filter(ev=>String(ev.data||'')>=todayIso)
+    .sort((a,b)=>
+      String(a.data||'').localeCompare(String(b.data||'')) ||
+      String(a.cadeira||'').localeCompare(String(b.cadeira||''),'pt')
+    );
+
+  const past=[...all]
+    .filter(ev=>String(ev.data||'')<todayIso)
+    .sort((a,b)=>
+      String(b.data||'').localeCompare(String(a.data||'')) ||
+      String(a.cadeira||'').localeCompare(String(b.cadeira||''),'pt')
+    );
+
+  const rows=(items,pastMode=false)=>items.map(ev=>{
+    const cls=agendaTypeClass(ev.tipo);
+    const people=[...ev.people].sort((a,b)=>
+      String(a.nome||'').localeCompare(String(b.nome||''),'pt')
+    );
+
+    return `
+      <div class="agenda-list-row ${pastMode?'past':''}">
+        <div class="agenda-list-date">
+          <strong>${fmt(ev.data)}</strong>
+          <span>${new Intl.DateTimeFormat('pt-PT',{weekday:'short'}).format(new Date(`${ev.data}T12:00:00`))}</span>
+        </div>
+
+        <div class="agenda-list-type ${cls}">${esc(ev.tipo||'Outro')}</div>
+
+        <div class="agenda-list-main">
+          <b>${esc(ev.cadeira||'—')}</b>
+          ${ev.observacao?`<small>${esc(ev.observacao)}</small>`:''}
+        </div>
+
+        <div class="agenda-list-people">
+          <span>${esc(agendaPeopleLabel(people))}</span>
+          <small>${people.length} pessoa${people.length===1?'':'s'}</small>
+        </div>
+      </div>`;
+  }).join('');
+
+  target.innerHTML=`
+    <div class="agenda-list-section">
+      <div class="agenda-list-section-head">
+        <h3>Próximas avaliações</h3>
+        <span>${upcoming.length}</span>
+      </div>
+      ${upcoming.length?rows(upcoming):'<div class="summary">Sem avaliações futuras.</div>'}
+    </div>
+
+    ${past.length?`
+      <details class="agenda-past-details">
+        <summary>Avaliações anteriores · ${past.length}</summary>
+        <div class="agenda-list-section past-section">
+          ${rows(past,true)}
+        </div>
+      </details>
+    `:''}
+  `;
+}
+
+function syncAgendaView(){
+  const calendar=$('#classCalendarViewWrap');
+  const list=$('#classAgendaList');
+  const calendarBtn=$('#agendaCalendarView');
+  const listBtn=$('#agendaListView');
+
+  if(!calendar||!list||!calendarBtn||!listBtn)return;
+
+  const listMode=classAgendaView==='list';
+  calendar.classList.toggle('hidden',listMode);
+  list.classList.toggle('hidden',!listMode);
+  calendarBtn.classList.toggle('active',!listMode);
+  listBtn.classList.toggle('active',listMode);
+
+  // Month navigation only matters in calendar mode.
+  ['#agendaPrevMonth','#agendaToday','#agendaNextMonth']
+    .forEach(sel=>$(sel)?.classList.toggle('hidden',listMode));
 }
 
 function renderClassAgenda(){
@@ -497,6 +635,7 @@ function renderClassAgenda(){
   const gridStart=new Date(year,month,1-firstWeekday);
 
   const all=aggregateAgendaEvaluations(classEvaluationRows());
+  renderClassAgendaList(all);
 
   const byDate=new Map();
   all.forEach(ev=>{
@@ -594,6 +733,18 @@ function renderClassAgenda(){
 
   $('#agendaAddEvaluation').onclick=()=>openAgendaEvaluationEditor();
 
+  $('#agendaCalendarView').onclick=()=>{
+    classAgendaView='calendar';
+    syncAgendaView();
+  };
+
+  $('#agendaListView').onclick=()=>{
+    classAgendaView='list';
+    syncAgendaView();
+  };
+
+  syncAgendaView();
+
   $('#agendaPrevMonth').onclick=()=>{
     classAgendaMonth=new Date(year,month-1,1);
     renderClassAgenda();
@@ -609,6 +760,44 @@ function renderClassAgenda(){
     classAgendaMonth=new Date(now.getFullYear(),now.getMonth(),1);
     renderClassAgenda();
   };
+}
+
+
+function classScheduleGroupNumber(model){
+  const name=String(model?.nome||'')
+    .toUpperCase()
+    .normalize('NFD')
+    .replace(/[\u0300-\u036f]/g,'')
+    .replace(/º/g,'');
+
+  const match=name.match(/6\s*ANO\s*TM[\s_-]*([1-4])\b/);
+  return match?Number(match[1]):null;
+}
+
+function classSchedulePeopleByGroup(groupNumber){
+  const modelIds=new Set(
+    classScheduleModels()
+      .filter(m=>classScheduleGroupNumber(m)===Number(groupNumber))
+      .map(m=>m.id)
+  );
+
+  const personIds=new Set(
+    S.scheduleModelPeople
+      .filter(x=>modelIds.has(x.horario_modelo_id))
+      .map(x=>x.pessoa_id)
+  );
+
+  return tmPeople().filter(p=>personIds.has(p.id));
+}
+
+function classPeopleWithSchedule(){
+  const modelIds=new Set(classScheduleModels().map(m=>m.id));
+  const personIds=new Set(
+    S.scheduleModelPeople
+      .filter(x=>modelIds.has(x.horario_modelo_id))
+      .map(x=>x.pessoa_id)
+  );
+  return personIds;
 }
 
 function classScheduleModels(){
@@ -725,26 +914,108 @@ function renderClassModule(){
   const people=tmPeople();
   if(!$('#cTotal'))return;
 
+  const todayIso=today();
+  const end7=new Date(`${todayIso}T12:00:00`);
+  end7.setDate(end7.getDate()+7);
+  const end7Iso=[
+    end7.getFullYear(),
+    String(end7.getMonth()+1).padStart(2,'0'),
+    String(end7.getDate()).padStart(2,'0')
+  ].join('-');
+
+  const uniqueEvaluations=aggregateAgendaEvaluations(classEvaluationRows())
+    .sort((a,b)=>
+      String(a.data||'').localeCompare(String(b.data||'')) ||
+      String(a.cadeira||'').localeCompare(String(b.cadeira||''),'pt')
+    );
+
+  const upcoming=uniqueEvaluations.filter(ev=>String(ev.data||'')>=todayIso);
+  const next7=upcoming.filter(ev=>String(ev.data||'')<=end7Iso);
+  const next=upcoming[0]||null;
+
+  const scheduledIds=classPeopleWithSchedule();
+  const noAce=people.filter(p=>!String(p.ace||'').trim());
+  const noSchedule=people.filter(p=>!scheduledIds.has(p.id));
+
   $('#cTotal').textContent=people.length;
-  $('#cExternal').textContent=people.filter(p=>p.integra_equipa===false).length;
+  $('#cEval7').textContent=next7.length;
+  $('#cNoAce').textContent=noAce.length;
+  $('#cNoSchedule').textContent=noSchedule.length;
+
   $('#cExe').textContent=people.filter(p=>p.ramo==='EXE').length;
   $('#cGnr').textContent=people.filter(p=>p.ramo==='GNR').length;
   $('#cTeam').textContent=people.filter(p=>p.integra_equipa!==false).length;
+  $('#cExternal').textContent=people.filter(p=>p.integra_equipa===false).length;
   $('#cFunction').textContent=people.filter(p=>String(p.funcao||'').trim()).length;
+  $('#cWithAce').textContent=people.filter(p=>String(p.ace||'').trim()).length;
 
-  const buckets=[
-    {label:'EXE · TM · 6.º',count:people.filter(p=>p.ramo==='EXE').length},
-    {label:'GNR · TM · 6.º',count:people.filter(p=>p.ramo==='GNR').length}
-  ];
+  const nextBox=$('#classNextEvaluation');
+  if(nextBox){
+    if(next){
+      const days=Math.round(
+        (new Date(`${next.data}T12:00:00`)-new Date(`${todayIso}T12:00:00`)) /
+        86400000
+      );
+      const when=days===0?'Hoje':days===1?'Amanhã':`Daqui a ${days} dias`;
 
-  const max=Math.max(1,...buckets.map(x=>x.count));
+      nextBox.innerHTML=`
+        <div class="next-eval-date">
+          <span>${when}</span>
+          <strong>${fmt(next.data)}</strong>
+        </div>
+        <div class="next-eval-main">
+          <span class="badge ${agendaTypeClass(next.tipo)}">${esc(next.tipo||'Avaliação')}</span>
+          <h3>${esc(next.cadeira||'—')}</h3>
+          <p>${next.observacao?esc(next.observacao):'Sem observação.'}</p>
+        </div>
+        <div class="next-eval-people">
+          <b>${next.people.length} pessoa${next.people.length===1?'':'s'}</b>
+          <span>${esc(agendaPeopleLabel(next.people))}</span>
+        </div>`;
+    }else{
+      nextBox.innerHTML='<div class="profile-empty">Não existem avaliações futuras registadas.</div>';
+    }
+  }
 
-  $('#classDistribution').innerHTML=buckets.map(x=>`
-    <div class="metric-row">
-      <div class="metric-label">${esc(x.label)}</div>
-      <div class="metric-bar"><span style="width:${(x.count/max)*100}%"></span></div>
-      <div class="metric-value">${x.count}</div>
-    </div>`).join('');
+  const weekBox=$('#classWeekAgenda');
+  if(weekBox){
+    const alertRows=[];
+
+    next7.slice(0,5).forEach(ev=>{
+      alertRows.push(`
+        <div class="week-agenda-row">
+          <div>
+            <b>${fmt(ev.data)} · ${esc(ev.cadeira||'—')}</b>
+            <small>${esc(ev.tipo||'Avaliação')} · ${ev.people.length} pessoa${ev.people.length===1?'':'s'}</small>
+          </div>
+          <span class="agenda-mini-dot ${agendaTypeClass(ev.tipo)}"></span>
+        </div>`);
+    });
+
+    if(noSchedule.length){
+      alertRows.push(`
+        <div class="week-agenda-row warning">
+          <div>
+            <b>${noSchedule.length} sem horário associado</b>
+            <small>${esc(noSchedule.slice(0,3).map(p=>agendaShortName(p.nome)).join(', '))}${noSchedule.length>3?'…':''}</small>
+          </div>
+          <span>!</span>
+        </div>`);
+    }
+
+    if(noAce.length){
+      alertRows.push(`
+        <div class="week-agenda-row muted-row">
+          <div>
+            <b>${noAce.length} sem ACE</b>
+            <small>Dados por completar.</small>
+          </div>
+        </div>`);
+    }
+
+    weekBox.innerHTML=alertRows.join('') ||
+      '<div class="profile-empty">Sem alertas para os próximos 7 dias.</div>';
+  }
 
   renderClassPeople();
   renderClassAgenda();

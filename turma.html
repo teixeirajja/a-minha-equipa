@@ -5,7 +5,7 @@
   <meta name="viewport" content="width=device-width,initial-scale=1">
   <title>QGApp — A Minha Turma</title>
   <link rel="icon" type="image/png" href="turma-favicon.png">
-  <link rel="stylesheet" href="styles.css?v=6.8">
+  <link rel="stylesheet" href="styles.css?v=6.9">
 </head>
 <body data-qg-page="class">
 <div id="toast" class="toast hidden"></div>
@@ -414,24 +414,65 @@
     </header>
 
     <section id="classInicio" class="class-page active">
-      <div class="stats class-stats">
-        <article><span>TM · 6.º ano</span><strong id="cTotal">—</strong></article>
-        <article><span>Na equipa</span><strong id="cTeam">—</strong></article>
-        <article><span>Externos</span><strong id="cExternal">—</strong></article>
-        <article><span>Com função</span><strong id="cFunction">—</strong></article>
+      <div class="stats class-stats operational-stats">
+        <article>
+          <span>TM · 6.º ano</span>
+          <strong id="cTotal">—</strong>
+          <small>Total da turma</small>
+        </article>
+        <article>
+          <span>Avaliações · 7 dias</span>
+          <strong id="cEval7">—</strong>
+          <small>Próximos compromissos</small>
+        </article>
+        <article>
+          <span>Sem ACE</span>
+          <strong id="cNoAce">—</strong>
+          <small>Por preencher</small>
+        </article>
+        <article>
+          <span>Sem horário</span>
+          <strong id="cNoSchedule">—</strong>
+          <small>Sem TM_1 a TM_4 associado</small>
+        </article>
       </div>
 
-      <div class="dashboard-grid">
+      <div class="dashboard-grid class-operational-grid">
         <div class="panel">
-          <div class="panel-head"><div><h3>Distribuição da turma</h3><p>Todos os TM do 6.º ano, pertencentes ou não à equipa.</p></div></div>
-          <div id="classDistribution" class="metric-list"></div>
-        </div>
-        <div class="panel">
-          <div class="panel-head"><div><h3>Ramo</h3><p>Distribuição EXE / GNR.</p></div></div>
-          <div class="mini-stats">
-            <article><span>EXE · TM</span><strong id="cExe">—</strong></article>
-            <article><span>GNR · TM</span><strong id="cGnr">—</strong></article>
+          <div class="panel-head">
+            <div>
+              <h3>Próxima avaliação</h3>
+              <p>O próximo compromisso académico registado.</p>
+            </div>
           </div>
+          <div id="classNextEvaluation" class="class-next-evaluation"></div>
+        </div>
+
+        <div class="panel">
+          <div class="panel-head">
+            <div>
+              <h3>Próximos 7 dias</h3>
+              <p>Avaliações e alertas rápidos da turma.</p>
+            </div>
+          </div>
+          <div id="classWeekAgenda" class="class-week-agenda"></div>
+        </div>
+      </div>
+
+      <div class="panel class-data-health-panel">
+        <div class="panel-head">
+          <div>
+            <h3>Estado dos dados</h3>
+            <p>Consulta rápida para perceber o que falta completar.</p>
+          </div>
+        </div>
+        <div class="mini-stats">
+          <article><span>EXE · TM</span><strong id="cExe">—</strong></article>
+          <article><span>GNR · TM</span><strong id="cGnr">—</strong></article>
+          <article><span>Na equipa</span><strong id="cTeam">—</strong></article>
+          <article><span>Externos</span><strong id="cExternal">—</strong></article>
+          <article><span>Com função</span><strong id="cFunction">—</strong></article>
+          <article><span>Com ACE</span><strong id="cWithAce">—</strong></article>
         </div>
       </div>
     </section>
@@ -482,16 +523,24 @@
         </div>
 
         <div class="class-agenda-title-row">
-          <h2 id="agendaMonthTitle">—</h2>
-          <div id="agendaMonthSummary" class="muted"></div>
+          <div>
+            <h2 id="agendaMonthTitle">—</h2>
+            <div id="agendaMonthSummary" class="muted"></div>
+          </div>
+          <div class="agenda-view-switch" role="group" aria-label="Vista da agenda">
+            <button id="agendaCalendarView" type="button" class="secondary active">Calendário</button>
+            <button id="agendaListView" type="button" class="secondary">Lista</button>
+          </div>
         </div>
 
-        <div class="class-calendar-wrap">
+        <div id="classCalendarViewWrap" class="class-calendar-wrap">
           <div class="class-calendar-weekdays">
             <div>Seg</div><div>Ter</div><div>Qua</div><div>Qui</div><div>Sex</div><div>Sáb</div><div>Dom</div>
           </div>
           <div id="classCalendarGrid" class="class-calendar-grid"></div>
         </div>
+
+        <div id="classAgendaList" class="class-agenda-list hidden"></div>
 
         <div class="class-agenda-legend">
           <span><i class="agenda-dot teste"></i>Teste</span>
@@ -877,6 +926,6 @@
   <div id="profileBody" class="profile-body"></div>
 </dialog>
 
-<script type="module" src="app.js?v=6.8"></script>
+<script type="module" src="app.js?v=6.9"></script>
 </body>
 </html>

@@ -923,3 +923,39 @@ Na Agenda da Turma:
 A estrutura da base de dados continua a ser a mesma da V6.6: uma avaliação comum a várias pessoas é guardada como um registo por pessoa e agrupada automaticamente no calendário.
 
 Não requer SQL novo.
+
+
+## V6.9 — Resumo operacional + Agenda Lista + grupos TM
+
+### Resumo da Turma
+
+O resumo deixa de estar focado apenas em estatísticas e passa a mostrar:
+- total da turma;
+- nº de avaliações nos próximos 7 dias;
+- nº de pessoas sem ACE;
+- nº de pessoas sem horário `TM_1` a `TM_4`;
+- próxima avaliação;
+- lista rápida dos próximos 7 dias;
+- alertas de pessoas sem horário / ACE;
+- indicadores de EXE, GNR, equipa, externos, função e ACE.
+
+### Agenda
+
+A Agenda passa a ter duas vistas:
+- `Calendário`;
+- `Lista`.
+
+A vista Lista mostra todas as próximas avaliações por ordem cronológica, com data, tipo, cadeira e pessoas associadas. As avaliações anteriores ficam numa secção expansível.
+
+### Criação de avaliações
+
+No seletor de pessoas foram adicionados atalhos:
+- Toda a turma
+- TM_1
+- TM_2
+- TM_3
+- TM_4
+
+Os atalhos usam diretamente as associações dos horários existentes e adicionam essas pessoas à seleção atual, permitindo combinar vários grupos.
+
+Não requer SQL novo.

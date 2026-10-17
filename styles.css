@@ -1696,3 +1696,242 @@ body{
     grid-column:1 / -1;
   }
 }
+
+
+/* V6.9 — Resumo operacional da Turma */
+.operational-stats article small{
+  display:block;
+  margin-top:5px;
+  color:var(--muted);
+  font-size:11px;
+}
+.class-operational-grid{
+  margin-bottom:16px;
+}
+.class-next-evaluation{
+  padding:18px;
+  min-height:150px;
+  display:grid;
+  grid-template-columns:auto minmax(0,1fr) minmax(150px,auto);
+  gap:18px;
+  align-items:center;
+}
+.next-eval-date{
+  display:grid;
+  gap:5px;
+  text-align:center;
+  border-right:1px solid var(--line);
+  padding-right:18px;
+}
+.next-eval-date span{
+  color:#3f78a6;
+  font-size:12px;
+  font-weight:800;
+  text-transform:uppercase;
+}
+.next-eval-date strong{
+  font-size:18px;
+}
+.next-eval-main h3{
+  margin:8px 0 4px;
+  font-size:22px;
+}
+.next-eval-main p{
+  margin:0;
+  color:var(--muted);
+}
+.next-eval-people{
+  display:grid;
+  gap:5px;
+  text-align:right;
+}
+.next-eval-people span{
+  color:var(--muted);
+  font-size:12px;
+}
+
+.class-week-agenda{
+  padding:10px 18px 16px;
+  display:grid;
+  gap:7px;
+}
+.week-agenda-row{
+  display:flex;
+  align-items:center;
+  justify-content:space-between;
+  gap:12px;
+  border-bottom:1px solid var(--line);
+  padding:9px 0;
+}
+.week-agenda-row:last-child{border-bottom:0}
+.week-agenda-row > div{
+  display:grid;
+  gap:3px;
+}
+.week-agenda-row small{color:var(--muted)}
+.week-agenda-row.warning{
+  color:#9a5b00;
+}
+.week-agenda-row.muted-row{
+  color:var(--muted);
+}
+.agenda-mini-dot{
+  width:10px;
+  height:10px;
+  border-radius:50%;
+  flex:0 0 auto;
+}
+.agenda-mini-dot.teste{background:#4a7fd0}
+.agenda-mini-dot.exame{background:#c44b4b}
+.agenda-mini-dot.trabalho{background:#c99224}
+.agenda-mini-dot.apresentacao{background:#7d5ac7}
+.agenda-mini-dot.outro{background:#6f8275}
+
+.class-data-health-panel{
+  margin-top:16px;
+}
+
+/* Agenda: Calendário / Lista */
+.agenda-view-switch{
+  display:flex;
+  gap:6px;
+}
+.agenda-view-switch button.active{
+  background:#244761;
+  color:#fff;
+}
+.class-agenda-list{
+  padding:0 18px 18px;
+}
+.agenda-list-section{
+  display:grid;
+  gap:8px;
+}
+.agenda-list-section-head{
+  display:flex;
+  align-items:center;
+  justify-content:space-between;
+  padding:10px 0 4px;
+}
+.agenda-list-section-head h3{margin:0}
+.agenda-list-section-head span{
+  min-width:28px;
+  height:28px;
+  padding:0 8px;
+  border-radius:999px;
+  display:grid;
+  place-items:center;
+  background:#edf4f8;
+  font-weight:800;
+}
+.agenda-list-row{
+  display:grid;
+  grid-template-columns:110px 105px minmax(180px,1fr) minmax(210px,1.2fr);
+  gap:14px;
+  align-items:center;
+  border:1px solid var(--line);
+  border-radius:11px;
+  padding:12px 14px;
+  background:#fff;
+}
+.agenda-list-row.past{
+  opacity:.62;
+}
+.agenda-list-date{
+  display:grid;
+  gap:3px;
+}
+.agenda-list-date span{
+  text-transform:capitalize;
+  color:var(--muted);
+  font-size:11px;
+}
+.agenda-list-type{
+  border-left:4px solid;
+  border-radius:6px;
+  padding:7px 8px;
+  font-size:11px;
+  font-weight:800;
+}
+.agenda-list-type.teste{background:#eaf2ff;border-color:#4a7fd0}
+.agenda-list-type.exame{background:#fdecec;border-color:#c44b4b}
+.agenda-list-type.trabalho{background:#fff5db;border-color:#c99224}
+.agenda-list-type.apresentacao{background:#efe9ff;border-color:#7d5ac7}
+.agenda-list-type.outro{background:#edf2ef;border-color:#6f8275}
+.agenda-list-main{
+  display:grid;
+  gap:3px;
+}
+.agenda-list-main small{color:var(--muted)}
+.agenda-list-people{
+  display:grid;
+  gap:3px;
+  text-align:right;
+}
+.agenda-list-people span{
+  font-size:12px;
+  font-weight:700;
+}
+.agenda-list-people small{color:var(--muted)}
+.agenda-past-details{
+  margin-top:18px;
+}
+.agenda-past-details > summary{
+  cursor:pointer;
+  color:var(--muted);
+  font-weight:700;
+}
+.past-section{margin-top:10px}
+
+/* Agenda: seleção rápida por TM_1...TM_4 */
+.agenda-group-select{
+  padding:10px;
+  border-bottom:1px solid var(--line);
+  background:#fbfcfc;
+}
+.agenda-group-select > span{
+  display:block;
+  margin-bottom:7px;
+  color:var(--muted);
+  font-size:11px;
+  font-weight:800;
+  text-transform:uppercase;
+}
+.agenda-group-buttons{
+  display:flex;
+  flex-wrap:wrap;
+  gap:6px;
+}
+.agenda-group-buttons button{
+  padding:7px 10px;
+  font-size:12px;
+}
+
+@media(max-width:850px){
+  .class-next-evaluation{
+    grid-template-columns:1fr;
+  }
+  .next-eval-date{
+    border-right:0;
+    border-bottom:1px solid var(--line);
+    padding:0 0 12px;
+    text-align:left;
+  }
+  .next-eval-people{text-align:left}
+  .agenda-list-row{
+    grid-template-columns:100px 90px 1fr;
+  }
+  .agenda-list-people{
+    grid-column:1 / -1;
+    text-align:left;
+  }
+}
+
+@media(max-width:600px){
+  .agenda-list-row{
+    grid-template-columns:1fr;
+  }
+  .agenda-list-people{
+    grid-column:auto;
+  }
+}

@@ -21,6 +21,7 @@ let externalSorts=[{key:'nome',dir:1}];
 let scheduleBlockSorts=[{key:'dia',dir:1},{key:'inicio',dir:1}];
 let currentScheduleViewerBlocks=[];
 let classScheduleIndex=0;
+let classAgendaMonth=new Date(new Date().getFullYear(),new Date().getMonth(),1);
 
 let classSorts=[{key:'nome',dir:1}];
 let classFilters={numero_corpo:'',nome:'',posto:'',ano:'',ramo:'',nim:''};
@@ -210,6 +211,7 @@ function showClassModule(){
 const classTitles={
   classInicio:['Resumo da Turma','Turma TM · 6.º ano.'],
   classPessoas:['Turma TM · 6.º ano','Todos os TM do 6.º ano.'],
+  classAgenda:['Agenda da Turma','Calendário de avaliações do 6.º ano TM.'],
   classHorarios:['Horários da Turma','Horários 6.º ANO TM_1 a 6.º ANO TM_4.']
 };
 
@@ -218,12 +220,183 @@ function classPage(id){
   $$('.class-nav button').forEach(x=>x.classList.toggle('active',x.dataset.classPage===id));
   const t=classTitles[id];
   if(t){$('#classPageTitle').textContent=t[0];$('#classPageSubtitle').textContent=t[1]}
+  if(id==='classAgenda')renderClassAgenda();
 }
 
 function classOrigin(p){
   return p.integra_equipa===false?'Externo':'Equipa';
 }
 
+
+
+function classEvaluationRows(){
+  const turmaIds=new Set(tmPeople().map(p=>p.id));
+
+  return S.evaluations
+    .filter(ev=>turmaIds.has(ev.pessoa_id))
+    .map(ev=>({
+      ...ev,
+      pessoa:S.people.find(p=>p.id===ev.pessoa_id)||null
+    }))
+    .filter(ev=>ev.pessoa);
+}
+
+function agendaTypeClass(tipo){
+  const s=String(tipo||'Outro')
+    .toLowerCase()
+    .normalize('NFD')
+    .replace(/[\u0300-\u036f]/g,'');
+
+  if(s==='teste')return 'teste';
+  if(s==='exame')return 'exame';
+  if(s==='trabalho')return 'trabalho';
+  if(s==='apresentacao')return 'apresentacao';
+  return 'outro';
+}
+
+function aggregateAgendaEvaluations(rows){
+  const grouped=new Map();
+
+  rows.forEach(ev=>{
+    const key=[
+      ev.data||'',
+      String(ev.cadeira||'').trim().toLowerCase(),
+      String(ev.tipo||'').trim().toLowerCase(),
+      String(ev.observacao||'').trim().toLowerCase()
+    ].join('|');
+
+    if(!grouped.has(key)){
+      grouped.set(key,{
+        data:ev.data,
+        cadeira:ev.cadeira||'—',
+        tipo:ev.tipo||'Outro',
+        observacao:ev.observacao||'',
+        people:[]
+      });
+    }
+
+    grouped.get(key).people.push(ev.pessoa);
+  });
+
+  return [...grouped.values()];
+}
+
+function agendaShortName(name){
+  const parts=String(name||'').trim().split(/\s+/).filter(Boolean);
+  if(parts.length<=2)return parts.join(' ');
+  return `${parts[0]} ${parts[parts.length-1]}`;
+}
+
+function renderClassAgenda(){
+  const grid=$('#classCalendarGrid');
+  const title=$('#agendaMonthTitle');
+  const summary=$('#agendaMonthSummary');
+  if(!grid||!title||!summary)return;
+
+  const year=classAgendaMonth.getFullYear();
+  const month=classAgendaMonth.getMonth();
+
+  title.textContent=new Intl.DateTimeFormat(
+    'pt-PT',
+    {month:'long',year:'numeric'}
+  ).format(classAgendaMonth).replace(/^./,c=>c.toUpperCase());
+
+  // Monday-based 6-week grid.
+  const first=new Date(year,month,1);
+  const firstWeekday=(first.getDay()+6)%7; // Seg=0 ... Dom=6
+  const gridStart=new Date(year,month,1-firstWeekday);
+
+  const all=aggregateAgendaEvaluations(classEvaluationRows());
+
+  const byDate=new Map();
+  all.forEach(ev=>{
+    if(!byDate.has(ev.data))byDate.set(ev.data,[]);
+    byDate.get(ev.data).push(ev);
+  });
+
+  const monthPrefix=`${year}-${String(month+1).padStart(2,'0')}-`;
+  const monthItems=all.filter(ev=>String(ev.data||'').startsWith(monthPrefix));
+
+  const rawCount=classEvaluationRows()
+    .filter(ev=>String(ev.data||'').startsWith(monthPrefix))
+    .length;
+
+  summary.textContent=monthItems.length===rawCount
+    ? `${rawCount} avaliação${rawCount===1?'':'ões'}`
+    : `${monthItems.length} avaliação${monthItems.length===1?'':'ões'} · ${rawCount} registo${rawCount===1?'':'s'}`;
+
+  const todayIso=today();
+
+  let html='';
+
+  for(let i=0;i<42;i++){
+    const d=new Date(gridStart);
+    d.setDate(gridStart.getDate()+i);
+
+    const iso=[
+      d.getFullYear(),
+      String(d.getMonth()+1).padStart(2,'0'),
+      String(d.getDate()).padStart(2,'0')
+    ].join('-');
+
+    const isCurrent=d.getMonth()===month;
+    const isToday=iso===todayIso;
+    const isWeekend=d.getDay()===0||d.getDay()===6;
+    const evaluations=(byDate.get(iso)||[])
+      .sort((a,b)=>
+        String(a.cadeira||'').localeCompare(String(b.cadeira||''),'pt',{sensitivity:'base'})
+      );
+
+    const cards=evaluations.map(ev=>{
+      const cls=agendaTypeClass(ev.tipo);
+      const people=ev.people
+        .sort((a,b)=>String(a.nome||'').localeCompare(String(b.nome||''),'pt'));
+
+      const who=people.length===1
+        ? agendaShortName(people[0].nome)
+        : `${people.length} pessoas`;
+
+      const tooltip=people.map(p=>`${p.numero_corpo||'—'} · ${p.nome}`).join(' | ');
+      const obs=ev.observacao?` · ${ev.observacao}`:'';
+
+      return `
+        <div class="agenda-evaluation ${cls}"
+             title="${esc(`${ev.tipo} · ${ev.cadeira}${obs} · ${tooltip}`)}">
+          <b>${esc(ev.cadeira)}</b>
+          <span>${esc(ev.tipo)} · ${esc(who)}</span>
+        </div>`;
+    }).join('');
+
+    html+=`
+      <div class="class-calendar-day ${isCurrent?'':'outside'} ${isToday?'today':''} ${isWeekend?'weekend':''}">
+        <div class="class-calendar-day-head">
+          <span>${d.getDate()}</span>
+          ${isToday?'<em>Hoje</em>':''}
+        </div>
+        <div class="class-calendar-events">
+          ${cards}
+        </div>
+      </div>`;
+  }
+
+  grid.innerHTML=html;
+
+  $('#agendaPrevMonth').onclick=()=>{
+    classAgendaMonth=new Date(year,month-1,1);
+    renderClassAgenda();
+  };
+
+  $('#agendaNextMonth').onclick=()=>{
+    classAgendaMonth=new Date(year,month+1,1);
+    renderClassAgenda();
+  };
+
+  $('#agendaToday').onclick=()=>{
+    const now=new Date();
+    classAgendaMonth=new Date(now.getFullYear(),now.getMonth(),1);
+    renderClassAgenda();
+  };
+}
 
 function classScheduleModels(){
   return S.scheduleModels
@@ -361,6 +534,7 @@ function renderClassModule(){
     </div>`).join('');
 
   renderClassPeople();
+  renderClassAgenda();
   renderClassSchedules();
 }
 

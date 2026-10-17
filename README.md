@@ -886,3 +886,22 @@ Esta migração:
 - cria a tabela `avaliacoes_turma`;
 - aplica RLS para o utilizador atual.
 
+
+
+## V6.7 — Agenda da Turma
+
+Foi criada uma nova aba `Agenda` no módulo `A Minha Turma`.
+
+A Agenda mostra:
+- calendário mensal com semanas de segunda a domingo;
+- navegação para mês anterior / seguinte;
+- botão `Hoje`;
+- todas as avaliações registadas nas fichas individuais;
+- cadeira, tipo de avaliação e pessoa associada;
+- quando a mesma avaliação está registada para várias pessoas, é agrupada num único cartão e mostra `X pessoas`;
+- cores diferentes para Teste, Exame, Trabalho, Apresentação e Outro;
+- destaque visual do dia atual.
+
+A Agenda reutiliza a tabela `avaliacoes_turma` criada na V6.6.
+
+Não requer SQL adicional além da migração V6.6 já existente.

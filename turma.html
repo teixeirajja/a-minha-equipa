@@ -5,7 +5,7 @@
   <meta name="viewport" content="width=device-width,initial-scale=1">
   <title>QGApp — A Minha Turma</title>
   <link rel="icon" type="image/png" href="turma-favicon.png">
-  <link rel="stylesheet" href="styles.css?v=6.6">
+  <link rel="stylesheet" href="styles.css?v=6.7">
 </head>
 <body data-qg-page="class">
 <div id="toast" class="toast hidden"></div>
@@ -397,6 +397,7 @@
     <nav class="class-nav">
       <button data-class-page="classInicio" class="active">Resumo</button>
       <button data-class-page="classPessoas">Turma</button>
+      <button data-class-page="classAgenda">Agenda</button>
       <button data-class-page="classHorarios">Horários</button>
     </nav>
     <div class="aside-bottom">
@@ -461,6 +462,42 @@
             </thead>
             <tbody id="classPeopleBody"></tbody>
           </table>
+        </div>
+      </div>
+    </section>
+
+    <section id="classAgenda" class="class-page">
+      <div class="panel class-agenda-panel">
+        <div class="panel-head class-agenda-panel-head">
+          <div>
+            <h3>Agenda da turma</h3>
+            <p>Compilação das avaliações de todos os TM do 6.º ano.</p>
+          </div>
+          <div class="class-agenda-nav">
+            <button id="agendaPrevMonth" type="button" class="secondary" title="Mês anterior">←</button>
+            <button id="agendaToday" type="button" class="secondary">Hoje</button>
+            <button id="agendaNextMonth" type="button" class="secondary" title="Mês seguinte">→</button>
+          </div>
+        </div>
+
+        <div class="class-agenda-title-row">
+          <h2 id="agendaMonthTitle">—</h2>
+          <div id="agendaMonthSummary" class="muted"></div>
+        </div>
+
+        <div class="class-calendar-wrap">
+          <div class="class-calendar-weekdays">
+            <div>Seg</div><div>Ter</div><div>Qua</div><div>Qui</div><div>Sex</div><div>Sáb</div><div>Dom</div>
+          </div>
+          <div id="classCalendarGrid" class="class-calendar-grid"></div>
+        </div>
+
+        <div class="class-agenda-legend">
+          <span><i class="agenda-dot teste"></i>Teste</span>
+          <span><i class="agenda-dot exame"></i>Exame</span>
+          <span><i class="agenda-dot trabalho"></i>Trabalho</span>
+          <span><i class="agenda-dot apresentacao"></i>Apresentação</span>
+          <span><i class="agenda-dot outro"></i>Outro</span>
         </div>
       </div>
     </section>
@@ -839,6 +876,6 @@
   <div id="profileBody" class="profile-body"></div>
 </dialog>
 
-<script type="module" src="app.js?v=6.6"></script>
+<script type="module" src="app.js?v=6.7"></script>
 </body>
 </html>

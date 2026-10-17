@@ -2056,22 +2056,29 @@ async function saveParticipantManualOverrides(eventId){
   }
 }
 
+let participantSort={key:'numero',dir:1};
 let participantTempSelection=new Set();
 
 function participantRows(){
   const q=String($('#participantsSearch')?.value||'').trim().toLowerCase();
   const state=$('#participantsStateFilter')?.value||'';
+  const year=$('#participantsYearFilter')?.value||'';
+  const course=$('#participantsCourseFilter')?.value||'';
   const group=$('#participantsGroupFilter')?.value||'';
 
   const allowed=new Set(scopePeople().map(p=>p.id));
 
-  return S.people.filter(p=>{
+  let rows=S.people.filter(p=>{
     if(!allowed.has(p.id))return false;
+
     if(group==='equipa' && p.integra_equipa===false)return false;
     if(group==='externos' && p.integra_equipa!==false)return false;
 
     const effective=effectiveParticipantState(p.id);
     if(state && effective.estado!==state)return false;
+
+    if(year && String(p.ano)!==String(year))return false;
+    if(course && `${p.ramo||''}|${p.curso||''}`!==course)return false;
 
     if(q){
       const values=[
@@ -2082,6 +2089,112 @@ function participantRows(){
     }
 
     return true;
+  });
+
+  rows.sort((a,b)=>{
+    let av,bv;
+
+    if(participantSort.key==='numero'){
+      const an=Number(a.numero_corpo),bn=Number(b.numero_corpo);
+      if(!Number.isNaN(an)&&!Number.isNaN(bn)){
+        return (an-bn)*participantSort.dir;
+      }
+      av=a.numero_corpo||'';
+      bv=b.numero_corpo||'';
+    }else if(participantSort.key==='nome'){
+      av=a.nome||'';
+      bv=b.nome||'';
+    }else if(participantSort.key==='ano'){
+      const diff=((Number(a.ano)||0)-(Number(b.ano)||0))*participantSort.dir;
+      if(diff!==0)return diff;
+      av=a.curso||'';
+      bv=b.curso||'';
+    }else if(participantSort.key==='curso'){
+      av=`${a.ramo||''} ${a.curso||''}`;
+      bv=`${b.ramo||''} ${b.curso||''}`;
+    }else if(participantSort.key==='disponibilidade'){
+      const rank={INDISPONIVEL:1,POR_CONFIRMAR:2,DISPONIVEL:3};
+      const ar=rank[effectiveParticipantState(a.id).estado]||9;
+      const br=rank[effectiveParticipantState(b.id).estado]||9;
+      const diff=(ar-br)*participantSort.dir;
+      if(diff!==0)return diff;
+      av=a.nome||'';
+      bv=b.nome||'';
+    }else{
+      av=a.nome||'';
+      bv=b.nome||'';
+    }
+
+    return String(av).localeCompare(
+      String(bv),
+      'pt',
+      {numeric:true,sensitivity:'base'}
+    )*participantSort.dir;
+  });
+
+  return rows;
+}
+
+function populateParticipantFilters(){
+  const allowed=scopePeople();
+
+  const years=[...new Set(
+    allowed.map(p=>p.ano).filter(Boolean)
+  )].sort((a,b)=>a-b);
+
+  const yearSelect=$('#participantsYearFilter');
+  const previousYear=yearSelect.value;
+
+  yearSelect.innerHTML=
+    '<option value="">Todos os anos</option>'+
+    years.map(y=>`<option value="${y}">${y}º ano</option>`).join('');
+
+  if(years.map(String).includes(previousYear)){
+    yearSelect.value=previousYear;
+  }
+
+  const courses=[...new Map(
+    allowed
+      .filter(p=>p.ramo&&p.curso)
+      .map(p=>[
+        `${p.ramo}|${p.curso}`,
+        {key:`${p.ramo}|${p.curso}`,label:`${p.ramo} · ${p.curso}`}
+      ])
+  ).values()].sort((a,b)=>a.label.localeCompare(b.label,'pt'));
+
+  const courseSelect=$('#participantsCourseFilter');
+  const previousCourse=courseSelect.value;
+
+  courseSelect.innerHTML=
+    '<option value="">Todos os cursos</option>'+
+    courses.map(c=>`<option value="${esc(c.key)}">${esc(c.label)}</option>`).join('');
+
+  if(courses.some(c=>c.key===previousCourse)){
+    courseSelect.value=previousCourse;
+  }
+}
+
+function syncParticipantSortSelect(){
+  const key=participantSort.key;
+  const dir=participantSort.dir;
+
+  let value='numero_asc';
+
+  if(key==='numero')value=dir===1?'numero_asc':'numero_desc';
+  if(key==='nome')value=dir===1?'nome_asc':'nome_desc';
+  if(key==='ano')value=dir===1?'ano_asc':'ano_desc';
+  if(key==='curso')value='curso_asc';
+  if(key==='disponibilidade')value='disponibilidade';
+
+  $('#participantsSort').value=value;
+
+  $$('.participant-sort-head').forEach(btn=>{
+    const active=btn.dataset.sort===key;
+    btn.classList.toggle('active',active);
+    const span=btn.querySelector('span');
+    if(span){
+      span.textContent=active?(dir===1?'↑':'↓'):'↕';
+    }
   });
 }
 
@@ -2101,6 +2214,8 @@ function renderParticipantsSummary(){
 }
 
 function renderParticipantsDialog(){
+  populateParticipantFilters();
+  syncParticipantSortSelect();
   const rows=participantRows();
 
   $('#participantsBody').innerHTML=rows.map(p=>{
@@ -2220,7 +2335,10 @@ async function openParticipantsDialog(){
 
     $('#participantsSearch').value='';
     $('#participantsStateFilter').value='';
+    $('#participantsYearFilter').value='';
+    $('#participantsCourseFilter').value='';
     $('#participantsGroupFilter').value='';
+    participantSort={key:'numero',dir:1};
 
     renderParticipantsDialog();
     $('#participantsDialog').showModal();
@@ -2315,6 +2433,35 @@ $('#participantsCancel').onclick=()=>$('#participantsDialog').close();
 
 $('#participantsSearch').oninput=renderParticipantsDialog;
 $('#participantsStateFilter').onchange=renderParticipantsDialog;
+$('#participantsYearFilter').onchange=renderParticipantsDialog;
+$('#participantsCourseFilter').onchange=renderParticipantsDialog;
+$('#participantsSort').onchange=()=>{
+  const v=$('#participantsSort').value;
+
+  if(v==='numero_asc')participantSort={key:'numero',dir:1};
+  else if(v==='numero_desc')participantSort={key:'numero',dir:-1};
+  else if(v==='nome_asc')participantSort={key:'nome',dir:1};
+  else if(v==='nome_desc')participantSort={key:'nome',dir:-1};
+  else if(v==='ano_asc')participantSort={key:'ano',dir:1};
+  else if(v==='ano_desc')participantSort={key:'ano',dir:-1};
+  else if(v==='curso_asc')participantSort={key:'curso',dir:1};
+  else if(v==='disponibilidade')participantSort={key:'disponibilidade',dir:1};
+
+  renderParticipantsDialog();
+};
+
+$$('.participant-sort-head').forEach(btn=>btn.onclick=()=>{
+  const key=btn.dataset.sort;
+
+  if(participantSort.key===key){
+    participantSort.dir*=-1;
+  }else{
+    participantSort={key,dir:1};
+  }
+
+  renderParticipantsDialog();
+});
+
 $('#participantsGroupFilter').onchange=renderParticipantsDialog;
 
 $('#participantsSelectAvailable').onclick=()=>{

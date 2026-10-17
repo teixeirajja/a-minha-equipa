@@ -374,17 +374,39 @@
 
   <div class="participants-toolbar">
     <input id="participantsSearch" placeholder="Pesquisar nº, nome, função, curso...">
+
     <select id="participantsStateFilter">
       <option value="">Todos os estados</option>
       <option value="DISPONIVEL">Disponíveis</option>
       <option value="INDISPONIVEL">Indisponíveis</option>
       <option value="POR_CONFIRMAR">Por confirmar</option>
     </select>
+
+    <select id="participantsYearFilter">
+      <option value="">Todos os anos</option>
+    </select>
+
+    <select id="participantsCourseFilter">
+      <option value="">Todos os cursos</option>
+    </select>
+
     <select id="participantsGroupFilter">
       <option value="">Equipa + externos</option>
       <option value="equipa">Só equipa</option>
       <option value="externos">Só externos</option>
     </select>
+
+    <select id="participantsSort">
+      <option value="numero_asc">Nº corpo ↑</option>
+      <option value="numero_desc">Nº corpo ↓</option>
+      <option value="nome_asc">Nome A–Z</option>
+      <option value="nome_desc">Nome Z–A</option>
+      <option value="ano_asc">Ano ↑</option>
+      <option value="ano_desc">Ano ↓</option>
+      <option value="curso_asc">Curso A–Z</option>
+      <option value="disponibilidade">Disponibilidade</option>
+    </select>
+
     <button id="participantsSelectAvailable" type="button" class="secondary">Selecionar disponíveis</button>
     <button id="participantsClear" type="button" class="secondary">Limpar seleção</button>
   </div>
@@ -396,11 +418,11 @@
       <thead>
         <tr>
           <th></th>
-          <th>Nº</th>
-          <th>Nome</th>
+          <th><button type="button" class="participant-sort-head" data-sort="numero">Nº <span>↕</span></button></th>
+          <th><button type="button" class="participant-sort-head" data-sort="nome">Nome <span>↕</span></button></th>
           <th>Origem / Função</th>
-          <th>Ano / Curso</th>
-          <th>Disponibilidade</th>
+          <th><button type="button" class="participant-sort-head" data-sort="ano">Ano / Curso <span>↕</span></button></th>
+          <th><button type="button" class="participant-sort-head" data-sort="disponibilidade">Disponibilidade <span>↕</span></button></th>
           <th>Decisão manual</th>
           <th>Motivo</th>
           <th>Aulas / Alertas</th>

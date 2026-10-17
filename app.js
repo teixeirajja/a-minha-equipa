@@ -144,7 +144,11 @@ function renderHome(){
     </tr>
   `).join('');
 }
-function badge(st){return`<span class="badge ${st==='DISPONIVEL'?'green':'red'}">${esc(st)}</span>`}
+function badge(st){
+  const cls=st==='DISPONIVEL'?'green':st==='POR_CONFIRMAR'?'amber':'red';
+  const label=st==='POR_CONFIRMAR'?'POR CONFIRMAR':st;
+  return`<span class="badge ${cls}">${esc(label)}</span>`;
+}
 async function checkAvailability(date,time='',ignoreEvent=null){
   const {data,error}=await supabase.rpc('consultar_disponibilidade',{p_data:date,p_hora:time||null,p_ignorar_evento:ignoreEvent||null});
   if(error)throw error;return data||[];
@@ -213,10 +217,11 @@ function filterAvailability(){
 
   const av=rows.filter(r=>r.estado==='DISPONIVEL').length;
   const un=rows.filter(r=>r.estado==='INDISPONIVEL').length;
+  const pc=rows.filter(r=>r.estado==='POR_CONFIRMAR').length;
   const al=rows.filter(r=>r.tem_alerta_aula).length;
 
   $('#availSummary').textContent=
-    `${rows.length} pessoa(s) mostradas · ${av} disponíveis · ${un} indisponíveis · ${al} alerta(s) de aula`;
+    `${rows.length} pessoa(s) mostradas · ${av} disponíveis · ${un} indisponíveis · ${pc} por confirmar · ${al} alerta(s) de aula`;
 
   $('#availBody').innerHTML=rows.map(r=>`<tr>
     <td>${esc(r.numero_corpo||'—')}</td>
@@ -279,9 +284,47 @@ function renderPeople(){
     del('pessoas','id',b.dataset.id);
   });
 }
+function constraintStatusBadge(c){
+  const map={
+    IMPEDITIVO:['red','Impeditivo'],
+    POR_CONFIRMAR:['amber','Por confirmar'],
+    ACEITE:['green','Aceite'],
+    NAO_ACEITE:['gray','Não aceite']
+  };
+  const [cls,label]=map[c.estado||'IMPEDITIVO']||['gray',c.estado||'—'];
+  return `<span class="badge ${cls}">${esc(label)}</span>`;
+}
+
+function constraintDateTime(date,time){
+  return `${fmt(date)}${time?` · ${time.slice(0,5)}`:''}`;
+}
+
 function renderConstraints(){
-  $('#constraintsBody').innerHTML=S.constraints.map(c=>`<tr><td>${esc(pName(c.pessoa_id))}</td><td>${esc(c.tipo)}</td><td>${fmt(c.data_inicio)}</td><td>${fmt(c.data_fim)}</td><td>${esc(c.observacao||'')}</td><td><div class="row-actions"><button class="icon ec" data-id="${c.id}">✎</button><button class="icon dc" data-id="${c.id}">🗑</button></div></td></tr>`).join('');
-  $$('.ec').forEach(b=>b.onclick=()=>openConstraint(S.constraints.find(c=>c.id===b.dataset.id)));$$('.dc').forEach(b=>b.onclick=()=>del('constrangimentos','id',b.dataset.id));
+  const rows=[...S.constraints].sort((a,b)=>
+    String(b.data_inicio).localeCompare(String(a.data_inicio))
+  );
+
+  $('#constraintsBody').innerHTML=rows.map(c=>`
+    <tr>
+      <td>${esc(pName(c.pessoa_id))}</td>
+      <td>${esc(c.tipo)}</td>
+      <td>${constraintStatusBadge(c)}</td>
+      <td>${constraintDateTime(c.data_inicio,c.hora_inicio)}</td>
+      <td>${constraintDateTime(c.data_fim,c.hora_fim)}</td>
+      <td>${esc(c.observacao||'')}</td>
+      <td>
+        <div class="row-actions">
+          <button class="icon ec" data-id="${c.id}" title="Editar">✎</button>
+          <button class="icon dc" data-id="${c.id}" title="Apagar">🗑</button>
+        </div>
+      </td>
+    </tr>
+  `).join('');
+
+  $$('.ec').forEach(b=>b.onclick=()=>openConstraint(
+    S.constraints.find(c=>c.id===b.dataset.id)
+  ));
+  $$('.dc').forEach(b=>b.onclick=()=>del('constrangimentos','id',b.dataset.id));
 }
 function renderSchedules(){
   const models=S.scheduleModels;
@@ -692,6 +735,7 @@ async function openProfile(personId){
 
 function openConstraint(c=null){
   const currentPerson=c?S.people.find(p=>p.id===c.pessoa_id):null;
+  const currentState=c?.estado||'IMPEDITIVO';
 
   modal(
     c?'Editar constrangimento':'Novo constrangimento',
@@ -706,38 +750,84 @@ function openConstraint(c=null){
           value="${esc(currentPerson?personLabel(currentPerson):'')}"
           required>
         ${personDatalist()}
-        <small class="muted">Podes escrever o nº de corpo ou parte do nome e escolher a sugestão.</small>
+        <small class="muted">Podes escrever o nº de corpo ou parte do nome e escolher uma sugestão.</small>
       </label>
 
       <label>Tipo
-        <input name="tipo" value="${esc(c?.tipo||'ERASMUS')}" required>
+        <input name="tipo" value="${esc(c?.tipo||'')}" placeholder="Ex.: Doente, ERASMUS, compromisso..." required>
       </label>
 
-      <label>Observação
-        <input name="observacao" value="${esc(c?.observacao||'')}">
+      <label>Estado
+        <select name="estado">
+          <option value="IMPEDITIVO" ${currentState==='IMPEDITIVO'?'selected':''}>Impeditivo</option>
+          <option value="POR_CONFIRMAR" ${currentState==='POR_CONFIRMAR'?'selected':''}>Por confirmar</option>
+          <option value="ACEITE" ${currentState==='ACEITE'?'selected':''}>Aceite</option>
+          <option value="NAO_ACEITE" ${currentState==='NAO_ACEITE'?'selected':''}>Não aceite</option>
+        </select>
       </label>
 
-      <label>Início
+      <label class="full">Observação
+        <input name="observacao" value="${esc(c?.observacao||'')}" placeholder="Motivo / informação adicional">
+      </label>
+
+      <label>Data início
         <input type="date" name="data_inicio" value="${c?.data_inicio||''}" required>
       </label>
 
-      <label>Fim
+      <label>Hora início <span class="optional">(opcional)</span>
+        <input type="time" name="hora_inicio" value="${c?.hora_inicio?.slice(0,5)||''}">
+      </label>
+
+      <label>Data fim
         <input type="date" name="data_fim" value="${c?.data_fim||''}" required>
       </label>
+
+      <label>Hora fim <span class="optional">(opcional)</span>
+        <input type="time" name="hora_fim" value="${c?.hora_fim?.slice(0,5)||''}">
+      </label>
+
+      <div class="constraint-help full">
+        <b>Como funciona:</b>
+        <span><strong>Impeditivo</strong> e <strong>Aceite</strong> deixam a pessoa indisponível.</span>
+        <span><strong>Por confirmar</strong> aparece como aviso na disponibilidade.</span>
+        <span><strong>Não aceite</strong> fica registado, mas deixa de afetar a disponibilidade.</span>
+        <span>Se não colocares horas, o constrangimento aplica-se ao dia inteiro.</span>
+      </div>
     </div>`,
     async f=>{
       const person=personFromSearch(f.get('pessoa_search'));
       if(!person) return toast('Escolhe uma pessoa válida da lista.');
 
+      const horaInicio=f.get('hora_inicio')||null;
+      const horaFim=f.get('hora_fim')||null;
+
+      if((horaInicio&&!horaFim)||(!horaInicio&&horaFim)){
+        return toast('Se usares horas, preenche hora de início e hora de fim.');
+      }
+
       const x={
         pessoa_id:person.id,
-        tipo:f.get('tipo'),
+        tipo:f.get('tipo').trim(),
+        estado:f.get('estado'),
         observacao:f.get('observacao')||null,
         data_inicio:f.get('data_inicio'),
-        data_fim:f.get('data_fim')
+        hora_inicio:horaInicio,
+        data_fim:f.get('data_fim'),
+        hora_fim:horaFim
       };
 
-      if(x.data_fim<x.data_inicio) return toast('A data de fim não pode ser anterior à data de início.');
+      if(x.data_fim<x.data_inicio){
+        return toast('A data de fim não pode ser anterior à data de início.');
+      }
+
+      if(
+        x.data_inicio===x.data_fim &&
+        x.hora_inicio &&
+        x.hora_fim &&
+        x.hora_fim<=x.hora_inicio
+      ){
+        return toast('A hora de fim tem de ser posterior à hora de início.');
+      }
 
       const r=c
         ? await supabase.from('constrangimentos').update(x).eq('id',c.id)
@@ -751,6 +841,7 @@ function openConstraint(c=null){
     }
   );
 }
+
 
 let SW={
   model:null,

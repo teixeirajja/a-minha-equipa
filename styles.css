@@ -388,3 +388,26 @@ label small.muted{font-weight:400;margin-top:-2px;color:var(--muted)}
   background:#e5f4f4;
   border-color:#b7d8d8;
 }
+
+/* V5.2 — Constrangimentos */
+.constraint-help{
+  border:1px solid var(--line);
+  background:#f7f9f7;
+  border-radius:10px;
+  padding:11px 12px;
+  display:grid;
+  gap:4px;
+  font-size:12px;
+  color:var(--muted);
+}
+.constraint-help b{color:var(--text)}
+.constraint-help span{display:block}
+.optional{
+  font-weight:400;
+  color:var(--muted);
+  font-size:11px;
+}
+.badge.gray{
+  background:#edf0ee;
+  color:#59625d;
+}

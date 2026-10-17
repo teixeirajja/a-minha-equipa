@@ -415,15 +415,59 @@ function exportEventCsv(eventId){
   toast(`CSV exportado: ${people.length} empenhado(s).`);
 }
 
+let pendingPdfEventId=null;
+
+function comparePdfValue(a,b,key){
+  if(['ano','numero_corpo','nim'].includes(key)){
+    const an=Number(a?.[key]);
+    const bn=Number(b?.[key]);
+    if(!Number.isNaN(an)&&!Number.isNaN(bn)){
+      if(an<bn)return -1;
+      if(an>bn)return 1;
+      return 0;
+    }
+  }
+  return String(a?.[key]??'').localeCompare(
+    String(b?.[key]??''),
+    'pt',
+    {numeric:true,sensitivity:'base'}
+  );
+}
+
+function sortPdfPeople(people,criteria){
+  return [...people].sort((a,b)=>{
+    for(const c of criteria){
+      if(!c.key)continue;
+      const cmp=comparePdfValue(a,b,c.key);
+      if(cmp!==0)return c.dir==='desc'?-cmp:cmp;
+    }
+    return 0;
+  });
+}
+
 function exportEventPdf(eventId){
+  pendingPdfEventId=eventId;
+
+  // Valor inicial sugerido.
+  $('#pdfSort1').value='ano';
+  $('#pdfSort1Dir').value='asc';
+  $('#pdfSort2').value='curso';
+  $('#pdfSort2Dir').value='asc';
+  $('#pdfSort3').value='numero_corpo';
+  $('#pdfSort3Dir').value='asc';
+
+  $('#pdfSortDialog').showModal();
+}
+
+function generateEventPdfWithSort(eventId,criteria){
   const e=S.events.find(x=>x.id===eventId);
   if(!e)return toast('Evento não encontrado.');
 
-  const people=eventAssignedPeople(eventId);
+  const people=sortPdfPeople(eventAssignedPeople(eventId),criteria);
 
   const rows=people.length
     ? people.map((p,i)=>`
-        <tr>
+      <tr>
         <td>${i+1}</td>
         <td>${esc(p.ano||'')}</td>
         <td>${esc(p.posto||'')}</td>
@@ -432,9 +476,23 @@ function exportEventPdf(eventId){
         <td>${esc(p.nim||'')}</td>
         <td>${esc(p.ramo||'')}</td>
         <td>${esc(p.curso||'')}</td>
-      </tr>
-      `).join('')
-    : '<tr><td colspan="7">Sem pessoas empenhadas.</td></tr>';
+      </tr>`).join('')
+    : '<tr><td colspan="8">Sem pessoas empenhadas.</td></tr>';
+
+  const labels={
+    numero_corpo:'Nº Corpo',
+    ano:'Ano',
+    posto:'Posto',
+    nome:'Nome',
+    nim:'NIM',
+    ramo:'Ramo',
+    curso:'Curso'
+  };
+
+  const sortText=criteria
+    .filter(c=>c.key)
+    .map((c,i)=>`${i+1}. ${labels[c.key]} (${c.dir==='desc'?'desc.':'asc.'})`)
+    .join(' · ');
 
   const w=window.open('','_blank','width=1100,height=800');
   if(!w)return toast('O browser bloqueou a janela de impressão.');
@@ -447,8 +505,9 @@ function exportEventPdf(eventId){
 <style>
   body{font-family:Arial,sans-serif;color:#111;margin:32px}
   h1{margin:0 0 6px;font-size:24px}
-  .meta{margin-bottom:22px;color:#444}
+  .meta{margin-bottom:8px;color:#444}
   .meta span{margin-right:18px}
+  .sort-info{margin-bottom:20px;color:#666;font-size:11px}
   table{width:100%;border-collapse:collapse}
   th,td{border:1px solid #bbb;padding:8px 9px;text-align:left;font-size:12px}
   th{background:#f0f0f0}
@@ -462,11 +521,14 @@ function exportEventPdf(eventId){
 <body>
   <button class="no-print" onclick="window.print()" style="float:right;padding:8px 12px">Imprimir / Guardar PDF</button>
   <h1>${esc(e.nome)}</h1>
+
   <div class="meta">
     <span><b>Data:</b> ${fmt(e.data)}</span>
     <span><b>Hora:</b> ${esc(e.hora_inicio?.slice(0,5)||'')}${e.hora_fim?'–'+esc(e.hora_fim.slice(0,5)):''}</span>
     <span><b>Empenhados:</b> ${people.length}</span>
   </div>
+
+  <div class="sort-info"><b>Ordenação:</b> ${esc(sortText)}</div>
 
   <table>
     <thead>
@@ -479,9 +541,11 @@ function exportEventPdf(eventId){
   <div class="footer">Gerado por A Minha Equipa</div>
 </body>
 </html>`);
+
   w.document.close();
   w.focus();
 }
+
 
 function renderHome(){
   const d=today();
@@ -2441,6 +2505,30 @@ async function saveWizard(){
   $('#eventWizard').close();toast('Evento guardado.');await load();
 }
 $('#wizardClose').onclick=$('#wizardCancel').onclick=()=>$('#eventWizard').close();$('#wizardSave').onclick=saveWizard;$('#weOpenParticipants').onclick=openParticipantsDialog;
+$('#pdfSortClose').onclick=$('#pdfSortCancel').onclick=()=>$('#pdfSortDialog').close();
+
+$('#pdfSortGenerate').onclick=()=>{
+  if(!pendingPdfEventId)return;
+
+  const criteria=[
+    {key:$('#pdfSort1').value,dir:$('#pdfSort1Dir').value},
+    {key:$('#pdfSort2').value,dir:$('#pdfSort2Dir').value},
+    {key:$('#pdfSort3').value,dir:$('#pdfSort3Dir').value}
+  ];
+
+  const used=new Set();
+  for(const c of criteria){
+    if(!c.key)continue;
+    if(used.has(c.key)){
+      return toast('Não escolhas o mesmo critério mais do que uma vez.');
+    }
+    used.add(c.key);
+  }
+
+  $('#pdfSortDialog').close();
+  generateEventPdfWithSort(pendingPdfEventId,criteria);
+};
+
 $('#participantsDialogClose').onclick=()=>$('#participantsDialog').close();
 $('#participantsCancel').onclick=()=>$('#participantsDialog').close();
 

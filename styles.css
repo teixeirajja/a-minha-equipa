@@ -703,3 +703,6 @@ label small.muted{font-weight:400;margin-top:-2px;color:var(--muted)}
 @media(max-width:800px){
   .participants-toolbar{grid-template-columns:1fr 1fr}
 }
+
+#pdfSortDialog{width:min(720px,calc(100vw - 24px))}
+#pdfSortDialog .profile-body{padding:16px}

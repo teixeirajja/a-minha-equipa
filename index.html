@@ -363,6 +363,50 @@
 
 
 
+<dialog id="pdfSortDialog" class="profile-dialog">
+  <div class="modal-head">
+    <div>
+      <h3>Ordenar mapa de empenhamentos</h3>
+      <small class="muted">Escolhe até 3 critérios. O 2.º desempata o 1.º e o 3.º desempata o 2.º.</small>
+    </div>
+    <button id="pdfSortClose" type="button" class="icon">×</button>
+  </div>
+  <div class="profile-body">
+    <div class="grid2">
+      <label>1.º critério
+        <select id="pdfSort1">
+          <option value="numero_corpo">Nº Corpo</option><option value="ano">Ano</option><option value="posto">Posto</option><option value="nome">Nome</option><option value="nim">NIM</option><option value="ramo">Ramo</option><option value="curso">Curso</option>
+        </select>
+      </label>
+      <label>Ordem
+        <select id="pdfSort1Dir"><option value="asc">Ascendente</option><option value="desc">Descendente</option></select>
+      </label>
+
+      <label>2.º critério
+        <select id="pdfSort2">
+          <option value="">Nenhum</option><option value="numero_corpo">Nº Corpo</option><option value="ano">Ano</option><option value="posto">Posto</option><option value="nome">Nome</option><option value="nim">NIM</option><option value="ramo">Ramo</option><option value="curso">Curso</option>
+        </select>
+      </label>
+      <label>Ordem
+        <select id="pdfSort2Dir"><option value="asc">Ascendente</option><option value="desc">Descendente</option></select>
+      </label>
+
+      <label>3.º critério
+        <select id="pdfSort3">
+          <option value="">Nenhum</option><option value="numero_corpo">Nº Corpo</option><option value="ano">Ano</option><option value="posto">Posto</option><option value="nome">Nome</option><option value="nim">NIM</option><option value="ramo">Ramo</option><option value="curso">Curso</option>
+        </select>
+      </label>
+      <label>Ordem
+        <select id="pdfSort3Dir"><option value="asc">Ascendente</option><option value="desc">Descendente</option></select>
+      </label>
+    </div>
+  </div>
+  <div class="modal-actions">
+    <button id="pdfSortCancel" type="button" class="secondary">Cancelar</button>
+    <button id="pdfSortGenerate" type="button" class="primary">Gerar PDF</button>
+  </div>
+</dialog>
+
 <dialog id="participantsDialog" class="participants-dialog">
   <div class="modal-head">
     <div>

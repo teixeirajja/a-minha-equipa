@@ -839,3 +839,20 @@ Não requer SQL novo.
 - Caso o browser bloqueie autoplay ou o YouTube não carregue, fica visível um fundo escuro de fallback.
 
 Não requer SQL novo.
+
+
+## V6.5 — Horários da Turma em carrossel
+
+A página `Horários` da Turma deixou de apresentar quatro cartões.
+
+Agora:
+- aparece um horário completo de cada vez;
+- o horário é mostrado diretamente em grelha semanal;
+- acima da grelha aparece a lista das pessoas associadas a esse horário;
+- setas `←` e `→` permitem navegar por `TM_1`, `TM_2`, `TM_3` e `TM_4`;
+- a navegação é circular: depois do último volta ao primeiro e vice-versa;
+- existe também navegação no fundo da tabela.
+
+Os dados continuam a ser lidos dos mesmos horários do Supabase.
+
+Não requer SQL novo.

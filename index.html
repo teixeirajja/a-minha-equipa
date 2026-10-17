@@ -140,7 +140,13 @@
       <div class="panel">
         <div class="panel-head"><div><h3>Eventos</h3><p>Cria eventos, empenha pessoal e exporta a lista de participantes.</p></div><button id="newEventBtn" class="primary">+ Novo evento</button></div>
         <div class="table-wrap">
-          <table><thead><tr><th>Data</th><th>Hora</th><th>Evento</th><th>Estado</th><th>Empenhados</th><th></th></tr></thead><tbody id="eventsBody"></tbody></table>
+          <table id="eventsTable"><thead><tr>
+<th><button class="sort-head event-sort-head" data-esort="data">Data <span>↕</span></button></th>
+<th><button class="sort-head event-sort-head" data-esort="hora">Hora <span>↕</span></button></th>
+<th><button class="sort-head event-sort-head" data-esort="nome">Evento <span>↕</span></button></th>
+<th><button class="sort-head event-sort-head" data-esort="estado">Estado <span>↕</span></button></th>
+<th><button class="sort-head event-sort-head" data-esort="empenhados">Empenhados <span>↕</span></button></th>
+<th></th></tr></thead><tbody id="eventsBody"></tbody></table>
         </div>
       </div>
     </section>
@@ -213,7 +219,14 @@
     <div class="table-wrap">
       <table>
         <thead>
-          <tr><th>Nº</th><th>Nome</th><th>Posto</th><th>Função</th><th>Ramo</th><th>Curso</th><th></th></tr>
+          <tr>
+<th><button class="sort-head external-sort-head" data-xsort="numero_corpo">Nº <span>↕</span></button></th>
+<th><button class="sort-head external-sort-head" data-xsort="nome">Nome <span>↕</span></button></th>
+<th><button class="sort-head external-sort-head" data-xsort="posto">Posto <span>↕</span></button></th>
+<th><button class="sort-head external-sort-head" data-xsort="funcao">Função <span>↕</span></button></th>
+<th><button class="sort-head external-sort-head" data-xsort="ramo">Ramo <span>↕</span></button></th>
+<th><button class="sort-head external-sort-head" data-xsort="curso">Curso <span>↕</span></button></th>
+<th></th></tr>
         </thead>
         <tbody id="externalPeopleBody"></tbody>
       </table>
@@ -266,7 +279,14 @@
   <div class="past-constraints-inner">
     <table id="pastConstraintsTable">
       <thead>
-        <tr><th>Pessoa</th><th>Tipo</th><th>Estado</th><th>Início</th><th>Fim</th><th>Observação</th><th></th></tr>
+        <tr>
+<th><button class="sort-head past-constraint-sort-head" data-csort="pessoa">Pessoa <span>↕</span></button></th>
+<th><button class="sort-head past-constraint-sort-head" data-csort="tipo">Tipo <span>↕</span></button></th>
+<th><button class="sort-head past-constraint-sort-head" data-csort="estado">Estado <span>↕</span></button></th>
+<th><button class="sort-head past-constraint-sort-head" data-csort="inicio">Início <span>↕</span></button></th>
+<th><button class="sort-head past-constraint-sort-head" data-csort="fim">Fim <span>↕</span></button></th>
+<th><button class="sort-head past-constraint-sort-head" data-csort="observacao">Observação <span>↕</span></button></th>
+<th></th></tr>
       </thead>
       <tbody id="pastConstraintsBody"></tbody>
     </table>
@@ -291,7 +311,12 @@
     <section id="historico" class="page">
       <div class="panel">
         <div class="panel-head"><div><h3>Histórico</h3><p>Últimas alterações.</p></div></div>
-        <div class="table-wrap"><table><thead><tr><th>Data</th><th>Tabela</th><th>Ação</th><th>Registo</th></tr></thead><tbody id="historyBody"></tbody></table></div>
+        <div class="table-wrap"><table id="historyTable"><thead><tr>
+<th><button class="sort-head history-sort-head" data-hsort="data">Data <span>↕</span></button></th>
+<th><button class="sort-head history-sort-head" data-hsort="tabela">Tabela <span>↕</span></button></th>
+<th><button class="sort-head history-sort-head" data-hsort="acao">Ação <span>↕</span></button></th>
+<th><button class="sort-head history-sort-head" data-hsort="registo">Registo <span>↕</span></button></th>
+</tr></thead><tbody id="historyBody"></tbody></table></div>
       </div>
     </section>
   </main>
@@ -499,7 +524,13 @@
     <div class="table-wrap">
       <table>
         <thead>
-          <tr><th>Dia</th><th>Início</th><th>Fim</th><th>Disciplina</th><th>Tipo</th></tr>
+          <tr>
+<th><button class="sort-head schedule-block-sort-head" data-ssort="dia">Dia <span>↕</span></button></th>
+<th><button class="sort-head schedule-block-sort-head" data-ssort="inicio">Início <span>↕</span></button></th>
+<th><button class="sort-head schedule-block-sort-head" data-ssort="fim">Fim <span>↕</span></button></th>
+<th><button class="sort-head schedule-block-sort-head" data-ssort="disciplina">Disciplina <span>↕</span></button></th>
+<th><button class="sort-head schedule-block-sort-head" data-ssort="tipo">Tipo <span>↕</span></button></th>
+</tr>
         </thead>
         <tbody id="scheduleViewerBlocks"></tbody>
       </table>

@@ -6,13 +6,19 @@ const supabase=createClient(
 );
 const $=s=>document.querySelector(s), $$=s=>[...document.querySelectorAll(s)];
 let S={people:[],constraints:[],schedules:[],schedulePeople:[],scheduleModels:[],scheduleModelPeople:[],events:[],assigned:[],manualAvailability:[],eventCourseTargets:[],history:[],availability:[]};
-let constraintSort={key:'inicio',dir:-1};
+let constraintSorts=[{key:'inicio',dir:-1}];
 let constraintFilters={pessoa:'',tipo:'',estado:'',inicio:'',fim:'',observacao:''};
 let expandedConstraints=new Set();
 
 let peopleGroupPreset='';
-let peopleSort={key:'nome',dir:1};
+let peopleSorts=[{key:'nome',dir:1}];
 let peopleFilters={numero_corpo:'',nome:'',posto:'',ano:'',ramo:'',curso:'',idade:'',localidade:''};
+
+let eventSorts=[{key:'data',dir:1},{key:'hora',dir:1}];
+let historySorts=[{key:'data',dir:-1}];
+let externalSorts=[{key:'nome',dir:1}];
+let scheduleBlockSorts=[{key:'dia',dir:1},{key:'inicio',dir:1}];
+let currentScheduleViewerBlocks=[];
 
 let availSorts=[{key:'nome',dir:1}];
 let availColumnFilters={
@@ -30,6 +36,62 @@ const fmt=d=>{if(!d)return'—';const [y,m,x]=String(d).slice(0,10).split('-');r
 const today=()=>new Date().toISOString().slice(0,10);
 const pName=id=>S.people.find(p=>p.id===id)?.nome||'—';
 const day=n=>['','Segunda','Terça','Quarta','Quinta','Sexta','Sábado','Domingo'][n]||n;
+
+function multiSortClick(sorts,key){
+  const index=sorts.findIndex(s=>s.key===key);
+
+  if(index===0){
+    sorts[0].dir*=-1;
+    return;
+  }
+
+  if(index>0){
+    const [existing]=sorts.splice(index,1);
+    sorts.unshift(existing);
+    return;
+  }
+
+  sorts.unshift({key,dir:1});
+}
+
+function multiSortIndicator(buttons,sorts,dataKey){
+  buttons.forEach(btn=>{
+    const key=btn.dataset[dataKey];
+    const index=sorts.findIndex(s=>s.key===key);
+    const active=index!==-1;
+
+    btn.classList.toggle('active',active);
+
+    const span=btn.querySelector('span');
+    if(span){
+      span.textContent=active
+        ? `${sorts[index].dir===1?'↑':'↓'}${index+1}`
+        : '↕';
+    }
+
+    btn.title=active
+      ? `${index+1}.º critério de ordenação`
+      : 'Adicionar como critério principal';
+  });
+}
+
+function genericCompare(a,b,key,dir=1,numericKeys=[]){
+  let av=a?.[key]??'',bv=b?.[key]??'';
+
+  if(numericKeys.includes(key)){
+    const an=Number(av),bn=Number(bv);
+    if(!Number.isNaN(an)&&!Number.isNaN(bn)){
+      return (an-bn)*dir;
+    }
+  }
+
+  return String(av).localeCompare(
+    String(bv),
+    'pt',
+    {numeric:true,sensitivity:'base'}
+  )*dir;
+}
+
 function toast(x){$('#toast').textContent=x;$('#toast').classList.remove('hidden');setTimeout(()=>$('#toast').classList.add('hidden'),2200)}
 async function sel(t,c='*'){const {data,error}=await supabase.from(t).select(c);if(error)throw error;return data||[]}
 async function load(){
@@ -214,7 +276,34 @@ function renderSchedules(){
 }
 
 function renderEvents(){
-  $('#eventsBody').innerHTML=S.events.map(e=>`
+  const rows=[...S.events].sort((a,b)=>{
+    for(const sort of eventSorts){
+      let av='',bv='',cmp=0;
+
+      if(sort.key==='data'){
+        av=a.data||'';bv=b.data||'';
+      }else if(sort.key==='hora'){
+        av=a.hora_inicio||'';bv=b.hora_inicio||'';
+      }else if(sort.key==='nome'){
+        av=a.nome||'';bv=b.nome||'';
+      }else if(sort.key==='estado'){
+        av=eventAutoStatus(a);bv=eventAutoStatus(b);
+      }else if(sort.key==='empenhados'){
+        cmp=S.assigned.filter(x=>x.evento_id===a.id).length-
+            S.assigned.filter(x=>x.evento_id===b.id).length;
+
+        if(cmp!==0)return cmp*sort.dir;
+        continue;
+      }
+
+      cmp=String(av).localeCompare(String(bv),'pt',{numeric:true,sensitivity:'base'});
+      if(cmp!==0)return cmp*sort.dir;
+    }
+
+    return 0;
+  });
+
+  $('#eventsBody').innerHTML=rows.map(e=>`
     <tr>
       <td>${fmt(e.data)}</td>
       <td>${e.hora_inicio?.slice(0,5)||''}${e.hora_fim?'–'+e.hora_fim.slice(0,5):''}</td>
@@ -248,9 +337,43 @@ function renderEvents(){
   $$('.de').forEach(b=>b.onclick=()=>deleteEvent(b.dataset.id));
   $$('.export-csv').forEach(b=>b.onclick=()=>exportEventCsv(b.dataset.id));
   $$('.export-print').forEach(b=>b.onclick=()=>exportEventPdf(b.dataset.id));
+
+  multiSortIndicator($$('.event-sort-head'),eventSorts,'esort');
 }
 
-function renderHistory(){$('#historyBody').innerHTML=S.history.map(h=>`<tr><td>${new Date(h.alterado_em).toLocaleString('pt-PT')}</td><td>${esc(h.tabela)}</td><td>${esc(h.acao)}</td><td>${esc(h.registo_id||'')}</td></tr>`).join('')}
+function renderHistory(){
+  const rows=[...S.history].sort((a,b)=>{
+    for(const sort of historySorts){
+      let av='',bv='',cmp=0;
+
+      if(sort.key==='data'){
+        av=a.alterado_em||'';bv=b.alterado_em||'';
+      }else if(sort.key==='tabela'){
+        av=a.tabela||'';bv=b.tabela||'';
+      }else if(sort.key==='acao'){
+        av=a.acao||'';bv=b.acao||'';
+      }else if(sort.key==='registo'){
+        av=a.registo_id||'';bv=b.registo_id||'';
+      }
+
+      cmp=String(av).localeCompare(String(bv),'pt',{numeric:true,sensitivity:'base'});
+      if(cmp!==0)return cmp*sort.dir;
+    }
+
+    return 0;
+  });
+
+  $('#historyBody').innerHTML=rows.map(h=>`
+    <tr>
+      <td>${new Date(h.alterado_em).toLocaleString('pt-PT')}</td>
+      <td>${esc(h.tabela)}</td>
+      <td>${esc(h.acao)}</td>
+      <td>${esc(h.registo_id||'')}</td>
+    </tr>
+  `).join('');
+
+  multiSortIndicator($$('.history-sort-head'),historySorts,'hsort');
+}
 
 async function openProfile(personId){
   const p=S.people.find(x=>x.id===personId);
@@ -787,22 +910,34 @@ function renderPeople(){
     });
 
   rows=[...rows].sort((a,b)=>{
-    let av=a[peopleSort.key],bv=b[peopleSort.key];
+    for(const sort of peopleSorts){
+      const key=sort.key;
 
-    if(peopleSort.key==='numero_corpo'){
-      const an=Number(av),bn=Number(bv);
-      if(!Number.isNaN(an)&&!Number.isNaN(bn)) return (an-bn)*peopleSort.dir;
+      if(key==='numero_corpo'){
+        const an=Number(a.numero_corpo),bn=Number(b.numero_corpo);
+        if(!Number.isNaN(an)&&!Number.isNaN(bn)){
+          const cmp=an-bn;
+          if(cmp!==0)return cmp*sort.dir;
+          continue;
+        }
+      }
+
+      if(['ano','idade'].includes(key)){
+        const cmp=(Number(a[key])||0)-(Number(b[key])||0);
+        if(cmp!==0)return cmp*sort.dir;
+        continue;
+      }
+
+      const cmp=String(a[key]??'').localeCompare(
+        String(b[key]??''),
+        'pt',
+        {numeric:true,sensitivity:'base'}
+      );
+
+      if(cmp!==0)return cmp*sort.dir;
     }
 
-    if(['ano','idade'].includes(peopleSort.key)){
-      return ((Number(av)||0)-(Number(bv)||0))*peopleSort.dir;
-    }
-
-    return String(av??'').localeCompare(
-      String(bv??''),
-      'pt',
-      {numeric:true,sensitivity:'base'}
-    )*peopleSort.dir;
+    return 0;
   });
 
   $('#peopleBody').innerHTML=rows.map(p=>`
@@ -839,19 +974,34 @@ function renderPeople(){
     del('pessoas','id',b.dataset.id);
   });
 
-  $$('#peopleTable .sort-head').forEach(btn=>{
-    btn.classList.toggle('active',btn.dataset.psort===peopleSort.key);
-    btn.querySelector('span').textContent=
-      btn.dataset.psort===peopleSort.key
-      ? (peopleSort.dir===1?'↑':'↓')
-      : '↕';
-  });
+  multiSortIndicator($$('#peopleTable .sort-head'),peopleSorts,'psort');
 }
 
 function renderExternalPeople(){
   const rows=S.people
     .filter(p=>p.integra_equipa===false)
-    .sort((a,b)=>a.nome.localeCompare(b.nome,'pt'));
+    .sort((a,b)=>{
+      for(const sort of externalSorts){
+        if(sort.key==='numero_corpo'){
+          const an=Number(a.numero_corpo),bn=Number(b.numero_corpo);
+          if(!Number.isNaN(an)&&!Number.isNaN(bn)){
+            const cmp=an-bn;
+            if(cmp!==0)return cmp*sort.dir;
+            continue;
+          }
+        }
+
+        const cmp=String(a[sort.key]??'').localeCompare(
+          String(b[sort.key]??''),
+          'pt',
+          {numeric:true,sensitivity:'base'}
+        );
+
+        if(cmp!==0)return cmp*sort.dir;
+      }
+
+      return 0;
+    });
 
   $('#externalPeopleCount').textContent=rows.length;
 
@@ -886,6 +1036,8 @@ function renderExternalPeople(){
     e.stopPropagation();
     del('pessoas','id',b.dataset.id);
   });
+
+  multiSortIndicator($$('.external-sort-head'),externalSorts,'xsort');
 }
 
 function openPerson(p=null,forceExternal=false){
@@ -1041,13 +1193,18 @@ function getConstraintRows(past=false){
   });
 
   rows.sort((a,b)=>{
-    let av,bv;
-    if(constraintSort.key==='pessoa'){av=pName(a.pessoa_id);bv=pName(b.pessoa_id);}
-    else if(constraintSort.key==='inicio'){av=constraintTimestamp(a,'start');bv=constraintTimestamp(b,'start');}
-    else if(constraintSort.key==='fim'){av=constraintTimestamp(a,'end');bv=constraintTimestamp(b,'end');}
-    else {av=a[constraintSort.key]??'';bv=b[constraintSort.key]??'';}
+    for(const sort of constraintSorts){
+      let av,bv;
 
-    return String(av).localeCompare(String(bv),'pt',{numeric:true,sensitivity:'base'})*constraintSort.dir;
+      if(sort.key==='pessoa'){av=pName(a.pessoa_id);bv=pName(b.pessoa_id);}
+      else if(sort.key==='inicio'){av=constraintTimestamp(a,'start');bv=constraintTimestamp(b,'start');}
+      else if(sort.key==='fim'){av=constraintTimestamp(a,'end');bv=constraintTimestamp(b,'end');}
+      else {av=a[sort.key]??'';bv=b[sort.key]??'';}
+
+      const cmp=String(av).localeCompare(String(bv),'pt',{numeric:true,sensitivity:'base'});
+      if(cmp!==0)return cmp*sort.dir;
+    }
+    return 0;
   });
 
   return rows;
@@ -1114,13 +1271,11 @@ function renderConstraints(){
 
   $('#pastConstraintsCount').textContent=past.length;
 
-  $$('#constraintsTable .sort-head').forEach(btn=>{
-    btn.classList.toggle('active',btn.dataset.csort===constraintSort.key);
-    btn.querySelector('span').textContent=
-      btn.dataset.csort===constraintSort.key
-      ? (constraintSort.dir===1?'↑':'↓')
-      : '↕';
-  });
+  multiSortIndicator(
+    [...$$('#constraintsTable .sort-head'),...$$('#pastConstraintsTable .sort-head')],
+    constraintSorts,
+    'csort'
+  );
 
   bindConstraintRowActions();
 }
@@ -1405,13 +1560,35 @@ function renderViewerWeekGrid(blocks){
   $('#scheduleViewerGrid').innerHTML=html;
 }
 
-function openScheduleViewer(title,subtitle,blocks,meta=[]){
-  $('#scheduleViewerTitle').textContent=title;
-  $('#scheduleViewerSub').textContent=subtitle||'';
+function renderScheduleViewerBlocks(){
+  const rows=[...currentScheduleViewerBlocks].sort((a,b)=>{
+    for(const sort of scheduleBlockSorts){
+      let av='',bv='',cmp=0;
 
-  $('#scheduleViewerMeta').innerHTML=meta.map(x=>`<span class="badge gray">${esc(x)}</span>`).join('');
+      if(sort.key==='dia'){
+        cmp=(Number(a.dia_semana)||0)-(Number(b.dia_semana)||0);
+        if(cmp!==0)return cmp*sort.dir;
+        continue;
+      }
 
-  $('#scheduleViewerBlocks').innerHTML=blocks.map(b=>`
+      if(sort.key==='inicio'){
+        av=a.hora_inicio||'';bv=b.hora_inicio||'';
+      }else if(sort.key==='fim'){
+        av=a.hora_fim||'';bv=b.hora_fim||'';
+      }else if(sort.key==='disciplina'){
+        av=a.disciplina||a.nome||'';bv=b.disciplina||b.nome||'';
+      }else if(sort.key==='tipo'){
+        av=a.tipo_aula||'';bv=b.tipo_aula||'';
+      }
+
+      cmp=String(av).localeCompare(String(bv),'pt',{numeric:true,sensitivity:'base'});
+      if(cmp!==0)return cmp*sort.dir;
+    }
+
+    return 0;
+  });
+
+  $('#scheduleViewerBlocks').innerHTML=rows.map(b=>`
     <tr>
       <td>${day(b.dia_semana)}</td>
       <td>${b.hora_inicio.slice(0,5)}</td>
@@ -1421,6 +1598,19 @@ function openScheduleViewer(title,subtitle,blocks,meta=[]){
     </tr>
   `).join('') || '<tr><td colspan="5">Sem blocos.</td></tr>';
 
+  multiSortIndicator($$('.schedule-block-sort-head'),scheduleBlockSorts,'ssort');
+}
+
+function openScheduleViewer(title,subtitle,blocks,meta=[]){
+  $('#scheduleViewerTitle').textContent=title;
+  $('#scheduleViewerSub').textContent=subtitle||'';
+
+  $('#scheduleViewerMeta').innerHTML=meta.map(x=>`<span class="badge gray">${esc(x)}</span>`).join('');
+
+  currentScheduleViewerBlocks=[...blocks];
+  scheduleBlockSorts=[{key:'dia',dir:1},{key:'inicio',dir:1}];
+
+  renderScheduleViewerBlocks();
   renderViewerWeekGrid(blocks);
   $('#scheduleViewer').showModal();
 }
@@ -2170,7 +2360,7 @@ async function saveParticipantManualOverrides(eventId){
   }
 }
 
-let participantSort={key:'numero',dir:1};
+let participantSorts=[{key:'numero',dir:1}];
 let participantTempSelection=new Set();
 
 function participantRows(){
@@ -2206,44 +2396,43 @@ function participantRows(){
   });
 
   rows.sort((a,b)=>{
-    let av,bv;
+    for(const sort of participantSorts){
+      let av,bv,cmp=0;
 
-    if(participantSort.key==='numero'){
-      const an=Number(a.numero_corpo),bn=Number(b.numero_corpo);
-      if(!Number.isNaN(an)&&!Number.isNaN(bn)){
-        return (an-bn)*participantSort.dir;
+      if(sort.key==='numero'){
+        const an=Number(a.numero_corpo),bn=Number(b.numero_corpo);
+
+        if(!Number.isNaN(an)&&!Number.isNaN(bn)){
+          cmp=an-bn;
+        }else{
+          cmp=String(a.numero_corpo||'').localeCompare(
+            String(b.numero_corpo||''),
+            'pt',
+            {numeric:true,sensitivity:'base'}
+          );
+        }
+      }else if(sort.key==='nome'){
+        cmp=String(a.nome||'').localeCompare(String(b.nome||''),'pt',{numeric:true,sensitivity:'base'});
+      }else if(sort.key==='ano'){
+        cmp=(Number(a.ano)||0)-(Number(b.ano)||0);
+
+        if(cmp===0){
+          cmp=String(a.curso||'').localeCompare(String(b.curso||''),'pt',{numeric:true,sensitivity:'base'});
+        }
+      }else if(sort.key==='curso'){
+        av=`${a.ramo||''} ${a.curso||''}`;
+        bv=`${b.ramo||''} ${b.curso||''}`;
+        cmp=av.localeCompare(bv,'pt',{numeric:true,sensitivity:'base'});
+      }else if(sort.key==='disponibilidade'){
+        const rank={INDISPONIVEL:1,POR_CONFIRMAR:2,DISPONIVEL:3};
+        cmp=(rank[effectiveParticipantState(a.id).estado]||9)-
+            (rank[effectiveParticipantState(b.id).estado]||9);
       }
-      av=a.numero_corpo||'';
-      bv=b.numero_corpo||'';
-    }else if(participantSort.key==='nome'){
-      av=a.nome||'';
-      bv=b.nome||'';
-    }else if(participantSort.key==='ano'){
-      const diff=((Number(a.ano)||0)-(Number(b.ano)||0))*participantSort.dir;
-      if(diff!==0)return diff;
-      av=a.curso||'';
-      bv=b.curso||'';
-    }else if(participantSort.key==='curso'){
-      av=`${a.ramo||''} ${a.curso||''}`;
-      bv=`${b.ramo||''} ${b.curso||''}`;
-    }else if(participantSort.key==='disponibilidade'){
-      const rank={INDISPONIVEL:1,POR_CONFIRMAR:2,DISPONIVEL:3};
-      const ar=rank[effectiveParticipantState(a.id).estado]||9;
-      const br=rank[effectiveParticipantState(b.id).estado]||9;
-      const diff=(ar-br)*participantSort.dir;
-      if(diff!==0)return diff;
-      av=a.nome||'';
-      bv=b.nome||'';
-    }else{
-      av=a.nome||'';
-      bv=b.nome||'';
+
+      if(cmp!==0)return cmp*sort.dir;
     }
 
-    return String(av).localeCompare(
-      String(bv),
-      'pt',
-      {numeric:true,sensitivity:'base'}
-    )*participantSort.dir;
+    return 0;
   });
 
   return rows;
@@ -2289,8 +2478,9 @@ function populateParticipantFilters(){
 }
 
 function syncParticipantSortSelect(){
-  const key=participantSort.key;
-  const dir=participantSort.dir;
+  const primary=participantSorts[0]||{key:'numero',dir:1};
+  const key=primary.key;
+  const dir=primary.dir;
 
   let value='numero_asc';
 
@@ -2301,15 +2491,7 @@ function syncParticipantSortSelect(){
   if(key==='disponibilidade')value='disponibilidade';
 
   $('#participantsSort').value=value;
-
-  $$('.participant-sort-head').forEach(btn=>{
-    const active=btn.dataset.sort===key;
-    btn.classList.toggle('active',active);
-    const span=btn.querySelector('span');
-    if(span){
-      span.textContent=active?(dir===1?'↑':'↓'):'↕';
-    }
-  });
+  multiSortIndicator($$('.participant-sort-head'),participantSorts,'sort');
 }
 
 function renderParticipantsSummary(){
@@ -2452,7 +2634,7 @@ async function openParticipantsDialog(){
     $('#participantsYearFilter').value='';
     $('#participantsCourseFilter').value='';
     $('#participantsGroupFilter').value='';
-    participantSort={key:'numero',dir:1};
+    participantSorts=[{key:'numero',dir:1}];
 
     renderParticipantsDialog();
     $('#participantsDialog').showModal();
@@ -2576,27 +2758,26 @@ $('#participantsCourseFilter').onchange=renderParticipantsDialog;
 $('#participantsSort').onchange=()=>{
   const v=$('#participantsSort').value;
 
-  if(v==='numero_asc')participantSort={key:'numero',dir:1};
-  else if(v==='numero_desc')participantSort={key:'numero',dir:-1};
-  else if(v==='nome_asc')participantSort={key:'nome',dir:1};
-  else if(v==='nome_desc')participantSort={key:'nome',dir:-1};
-  else if(v==='ano_asc')participantSort={key:'ano',dir:1};
-  else if(v==='ano_desc')participantSort={key:'ano',dir:-1};
-  else if(v==='curso_asc')participantSort={key:'curso',dir:1};
-  else if(v==='disponibilidade')participantSort={key:'disponibilidade',dir:1};
+  let next={key:'numero',dir:1};
 
+  if(v==='numero_asc')next={key:'numero',dir:1};
+  else if(v==='numero_desc')next={key:'numero',dir:-1};
+  else if(v==='nome_asc')next={key:'nome',dir:1};
+  else if(v==='nome_desc')next={key:'nome',dir:-1};
+  else if(v==='ano_asc')next={key:'ano',dir:1};
+  else if(v==='ano_desc')next={key:'ano',dir:-1};
+  else if(v==='curso_asc')next={key:'curso',dir:1};
+  else if(v==='disponibilidade')next={key:'disponibilidade',dir:1};
+
+  const oldIndex=participantSorts.findIndex(s=>s.key===next.key);
+  if(oldIndex!==-1)participantSorts.splice(oldIndex,1);
+
+  participantSorts.unshift(next);
   renderParticipantsDialog();
 };
 
 $$('.participant-sort-head').forEach(btn=>btn.onclick=()=>{
-  const key=btn.dataset.sort;
-
-  if(participantSort.key===key){
-    participantSort.dir*=-1;
-  }else{
-    participantSort={key,dir:1};
-  }
-
+  multiSortClick(participantSorts,btn.dataset.sort);
   renderParticipantsDialog();
 });
 
@@ -2674,17 +2855,15 @@ $$('#constraintsTable [data-cfilter]').forEach(el=>{
   el.addEventListener('input',renderConstraints);
   el.addEventListener('change',renderConstraints);
 });
-$$('#constraintsTable .sort-head').forEach(btn=>{
+[...$$('#constraintsTable .sort-head'),...$$('#pastConstraintsTable .sort-head')].forEach(btn=>{
   btn.addEventListener('click',()=>{
-    const key=btn.dataset.csort;
-    if(constraintSort.key===key) constraintSort.dir*=-1;
-    else {constraintSort.key=key;constraintSort.dir=1;}
+    multiSortClick(constraintSorts,btn.dataset.csort);
     renderConstraints();
   });
 });
 $('#resetConstraintFilters').onclick=()=>{
   $$('#constraintsTable [data-cfilter]').forEach(el=>el.value='');
-  constraintSort={key:'inicio',dir:-1};
+  constraintSorts=[{key:'inicio',dir:-1}];
   renderConstraints();
 };
 
@@ -2694,9 +2873,7 @@ $$('#peopleTable [data-pfilter]').forEach(el=>{
 });
 $$('#peopleTable .sort-head').forEach(btn=>{
   btn.addEventListener('click',()=>{
-    const key=btn.dataset.psort;
-    if(peopleSort.key===key) peopleSort.dir*=-1;
-    else {peopleSort.key=key;peopleSort.dir=1;}
+    multiSortClick(peopleSorts,btn.dataset.psort);
     renderPeople();
   });
 });
@@ -2709,9 +2886,30 @@ $('#resetPeopleFilters').onclick=()=>{
   $$('#peopleTable [data-pfilter]').forEach(el=>el.value='');
   $('#peopleGroupPreset').value='';
   peopleGroupPreset='';
-  peopleSort={key:'nome',dir:1};
+  peopleSorts=[{key:'nome',dir:1}];
   renderPeople();
 };
+
+
+$$('.event-sort-head').forEach(btn=>btn.onclick=()=>{
+  multiSortClick(eventSorts,btn.dataset.esort);
+  renderEvents();
+});
+
+$$('.history-sort-head').forEach(btn=>btn.onclick=()=>{
+  multiSortClick(historySorts,btn.dataset.hsort);
+  renderHistory();
+});
+
+$$('.external-sort-head').forEach(btn=>btn.onclick=()=>{
+  multiSortClick(externalSorts,btn.dataset.xsort);
+  renderExternalPeople();
+});
+
+$$('.schedule-block-sort-head').forEach(btn=>btn.onclick=()=>{
+  multiSortClick(scheduleBlockSorts,btn.dataset.ssort);
+  renderScheduleViewerBlocks();
+});
 
 $('#newConstraintBtn').onclick=()=>openConstraint();$('#viewPersonScheduleBtn').onclick=openPersonSchedulePicker;
 $('#scheduleViewerClose').onclick=()=>$('#scheduleViewer').close();

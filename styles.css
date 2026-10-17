@@ -713,3 +713,11 @@ label small.muted{font-weight:400;margin-top:-2px;color:var(--muted)}
   min-width:18px;
   font-weight:800;
 }
+
+/* V5.14 — ordenação multi-critério em toda a aplicação */
+.sort-head.active span,
+.participant-sort-head.active span{
+  display:inline-block;
+  min-width:18px;
+  font-weight:800;
+}

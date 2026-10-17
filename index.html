@@ -149,7 +149,21 @@
       <div class="panel">
         <div class="panel-head"><div><h3>Equipa</h3><p>Clica numa pessoa para abrir a ficha individual.</p></div><button id="newPersonBtn" class="primary">+ Pessoa</button></div>
         <div class="toolbar"><input id="personSearch" placeholder="Pesquisar nome, nº, curso..."></div>
-        <div class="table-wrap"><table id="peopleTable">
+        <div class="people-filter-toolbar">
+  <label>Grupo rápido
+    <select id="peopleGroupPreset">
+      <option value="">Todos</option>
+      <option value="ENGENHEIROS">Engenheiros (TM + ENG + SMAT)</option>
+      <option value="MED">Medicina (MED)</option>
+      <option value="TM">TM</option>
+      <option value="ENG">ENG</option>
+      <option value="SMAT">SMAT</option>
+      <option value="SME">SME</option>
+    </select>
+  </label>
+  <small>Podes ainda escrever vários cursos separados por <b>;</b> ou <b>,</b> no filtro Curso.</small>
+</div>
+<div class="table-wrap"><table id="peopleTable">
   <thead>
     <tr>
       <th><button class="sort-head" data-psort="numero_corpo">Nº <span>↕</span></button></th>

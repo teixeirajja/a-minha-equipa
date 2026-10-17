@@ -10,6 +10,7 @@ let constraintSort={key:'inicio',dir:-1};
 let constraintFilters={pessoa:'',tipo:'',estado:'',inicio:'',fim:'',observacao:''};
 let expandedConstraints=new Set();
 
+let peopleGroupPreset='';
 let peopleSort={key:'nome',dir:1};
 let peopleFilters={numero_corpo:'',nome:'',posto:'',ano:'',ramo:'',curso:'',idade:'',localidade:''};
 
@@ -618,17 +619,53 @@ function renderPeople(){
     peopleFilters[el.dataset.pfilter]=String(el.value||'').trim().toLowerCase();
   });
 
-  let rows=S.people.filter(p=>p.integra_equipa!==false).filter(p=>{
-    if(peopleFilters.numero_corpo && !String(p.numero_corpo||'').toLowerCase().includes(peopleFilters.numero_corpo)) return false;
-    if(peopleFilters.nome && !String(p.nome||'').toLowerCase().includes(peopleFilters.nome)) return false;
-    if(peopleFilters.posto && !String(p.posto||'').toLowerCase().includes(peopleFilters.posto)) return false;
-    if(peopleFilters.ano && !String(p.ano||'').toLowerCase().includes(peopleFilters.ano)) return false;
-    if(peopleFilters.ramo && String(p.ramo||'').toLowerCase()!==peopleFilters.ramo) return false;
-    if(peopleFilters.curso && !String(p.curso||'').toLowerCase().includes(peopleFilters.curso)) return false;
-    if(peopleFilters.idade && !String(p.idade||'').toLowerCase().includes(peopleFilters.idade)) return false;
-    if(peopleFilters.localidade && !String(p.localidade||'').toLowerCase().includes(peopleFilters.localidade)) return false;
-    return true;
-  });
+  let rows=S.people
+    .filter(p=>p.integra_equipa!==false)
+    .filter(p=>{
+      // Grupo rápido
+      if(peopleGroupPreset==='ENGENHEIROS'){
+        const engineering=new Set(['TM','ENG','SMAT']);
+        if(!engineering.has(String(p.curso||'').toUpperCase())) return false;
+      }else if(peopleGroupPreset){
+        if(String(p.curso||'').toUpperCase()!==peopleGroupPreset) return false;
+      }
+
+      if(peopleFilters.numero_corpo &&
+        !String(p.numero_corpo||'').toLowerCase().includes(peopleFilters.numero_corpo)) return false;
+
+      if(peopleFilters.nome &&
+        !String(p.nome||'').toLowerCase().includes(peopleFilters.nome)) return false;
+
+      if(peopleFilters.posto &&
+        !String(p.posto||'').toLowerCase().includes(peopleFilters.posto)) return false;
+
+      if(peopleFilters.ano &&
+        !String(p.ano||'').toLowerCase().includes(peopleFilters.ano)) return false;
+
+      if(peopleFilters.ramo &&
+        String(p.ramo||'').toLowerCase()!==peopleFilters.ramo) return false;
+
+      // Curso: aceita vários valores separados por ; ou ,
+      // Ex.: TM;ENG;SMAT
+      if(peopleFilters.curso){
+        const wanted=peopleFilters.curso
+          .split(/[;,]/)
+          .map(x=>x.trim().toLowerCase())
+          .filter(Boolean);
+
+        const course=String(p.curso||'').toLowerCase();
+
+        if(wanted.length && !wanted.some(x=>course.includes(x))) return false;
+      }
+
+      if(peopleFilters.idade &&
+        !String(p.idade||'').toLowerCase().includes(peopleFilters.idade)) return false;
+
+      if(peopleFilters.localidade &&
+        !String(p.localidade||'').toLowerCase().includes(peopleFilters.localidade)) return false;
+
+      return true;
+    });
 
   rows=[...rows].sort((a,b)=>{
     let av=a[peopleSort.key],bv=b[peopleSort.key];
@@ -642,7 +679,11 @@ function renderPeople(){
       return ((Number(av)||0)-(Number(bv)||0))*peopleSort.dir;
     }
 
-    return String(av??'').localeCompare(String(bv??''),'pt',{numeric:true,sensitivity:'base'})*peopleSort.dir;
+    return String(av??'').localeCompare(
+      String(bv??''),
+      'pt',
+      {numeric:true,sensitivity:'base'}
+    )*peopleSort.dir;
   });
 
   $('#peopleBody').innerHTML=rows.map(p=>`
@@ -2167,8 +2208,15 @@ $$('#peopleTable .sort-head').forEach(btn=>{
     renderPeople();
   });
 });
+$('#peopleGroupPreset').onchange=()=>{
+  peopleGroupPreset=$('#peopleGroupPreset').value;
+  renderPeople();
+};
+
 $('#resetPeopleFilters').onclick=()=>{
   $$('#peopleTable [data-pfilter]').forEach(el=>el.value='');
+  $('#peopleGroupPreset').value='';
+  peopleGroupPreset='';
   peopleSort={key:'nome',dir:1};
   renderPeople();
 };

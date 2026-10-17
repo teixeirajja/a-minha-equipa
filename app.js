@@ -2367,7 +2367,7 @@ function exportEventCsv(eventId){
     ['#','Ano','Posto','Nº Corpo','Nome','NIM','Ramo','Curso']
   ];
 
-  people.forEach(p=>{
+  people.forEach((p,index)=>{
     rows.push([
       index+1,
       p.ano||'',

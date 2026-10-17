@@ -1092,3 +1092,22 @@ Antes de publicar esta versão, executar no Supabase SQL Editor:
 
 `17_migracao_constrangimento_condicionado.sql`
 
+
+
+## V6.12.1 — FIX exportação CSV dos eventos
+
+Corrigido o botão `CSV` na página Eventos.
+
+O erro estava no `exportEventCsv()`: a coluna `#` usava `index+1`, mas o índice não estava definido no `forEach`.
+
+Agora a exportação gera corretamente:
+- nº sequencial;
+- ano;
+- posto;
+- nº corpo;
+- nome;
+- NIM;
+- ramo;
+- curso.
+
+Não requer SQL novo.

@@ -856,3 +856,33 @@ Esta versão corrige efetivamente:
 Foi também adicionado `?v=6.5.1` ao CSS e JS para impedir que o browser/GitHub Pages reutilize ficheiros antigos em cache.
 
 Não requer SQL novo.
+
+
+## V6.6 — Ficha académica em A Minha Turma
+
+Na ficha individual aberta a partir de `A Minha Turma` foram adicionados:
+
+- **Cadeiras** — calculadas automaticamente a partir do(s) horário(s) associado(s) à pessoa; não é necessário duplicar informação.
+- **ACE** — campo opcional editável diretamente na ficha.
+- **Avaliações** — permite adicionar, editar e apagar datas de:
+  - Teste
+  - Exame
+  - Trabalho
+  - Apresentação
+  - Outro
+
+Cada avaliação guarda cadeira, tipo, data e uma observação opcional.
+
+A ficha aberta no módulo `A Minha Equipa` mantém o comportamento anterior.
+
+### IMPORTANTE
+
+Antes de publicar esta versão, correr no Supabase SQL Editor:
+
+`16_migracao_turma_ace_avaliacoes.sql`
+
+Esta migração:
+- adiciona `ace` à tabela `pessoas`;
+- cria a tabela `avaliacoes_turma`;
+- aplica RLS para o utilizador atual.
+

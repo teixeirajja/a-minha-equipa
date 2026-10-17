@@ -6,7 +6,7 @@ const supabase=createClient(
 );
 const QG_PAGE=document.body.dataset.qgPage||'selector';
 const $=s=>document.querySelector(s), $$=s=>[...document.querySelectorAll(s)];
-let S={people:[],constraints:[],schedules:[],schedulePeople:[],scheduleModels:[],scheduleModelPeople:[],events:[],assigned:[],manualAvailability:[],eventCourseTargets:[],history:[],availability:[]};
+let S={people:[],constraints:[],schedules:[],schedulePeople:[],scheduleModels:[],scheduleModelPeople:[],events:[],assigned:[],manualAvailability:[],eventCourseTargets:[],history:[],evaluations:[],availability:[]};
 let constraintSorts=[{key:'inicio',dir:-1}];
 let constraintFilters={pessoa:'',tipo:'',estado:'',inicio:'',fim:'',observacao:''};
 let expandedConstraints=new Set();
@@ -129,8 +129,18 @@ function genericCompare(a,b,key,dir=1,numericKeys=[]){
 
 function toast(x){$('#toast').textContent=x;$('#toast').classList.remove('hidden');setTimeout(()=>$('#toast').classList.add('hidden'),2200)}
 async function sel(t,c='*'){const {data,error}=await supabase.from(t).select(c);if(error)throw error;return data||[]}
+async function selOptional(t,c='*'){
+  const {data,error}=await supabase.from(t).select(c);
+  if(error){
+    // Permite abrir a app antes de correr a migração nova.
+    if(error.code==='42P01' || error.code==='PGRST205')return [];
+    throw error;
+  }
+  return data||[];
+}
+
 async function load(){
-  const [people,constraints,schedules,sp,scheduleModels,scheduleModelPeople,events,assigned,manualAvailability,eventCourseTargets,history]=await Promise.all([
+  const [people,constraints,schedules,sp,scheduleModels,scheduleModelPeople,events,assigned,manualAvailability,eventCourseTargets,history,evaluations]=await Promise.all([
     sel('pessoas'),
     sel('constrangimentos'),
     sel('horarios_base'),
@@ -141,7 +151,8 @@ async function load(){
     sel('evento_empenhados'),
     sel('evento_disponibilidade_manual'),
     sel('evento_cursos_alvo'),
-    supabase.from('historico').select('*').order('alterado_em',{ascending:false}).limit(100).then(r=>{if(r.error)throw r.error;return r.data||[]})
+    supabase.from('historico').select('*').order('alterado_em',{ascending:false}).limit(100).then(r=>{if(r.error)throw r.error;return r.data||[]}),
+    selOptional('avaliacoes_turma')
   ]);
   Object.assign(S,{
     people:people.sort((a,b)=>a.nome.localeCompare(b.nome)),
@@ -154,7 +165,8 @@ async function load(){
     assigned,
     manualAvailability,
     eventCourseTargets,
-    history
+    history,
+    evaluations
   });
   render();
 }
@@ -653,6 +665,150 @@ function renderHistory(){
   multiSortIndicator($$('.history-sort-head'),historySorts,'hsort');
 }
 
+
+function subjectsForPerson(personId){
+  const modelIds=new Set(
+    S.scheduleModelPeople
+      .filter(x=>x.pessoa_id===personId)
+      .map(x=>x.horario_modelo_id)
+  );
+
+  const legacyIds=new Set(
+    S.schedulePeople
+      .filter(x=>x.pessoa_id===personId)
+      .map(x=>x.horario_id)
+  );
+
+  const subjects=new Set();
+
+  S.schedules.forEach(h=>{
+    const belongsToModel=h.horario_modelo_id && modelIds.has(h.horario_modelo_id);
+    const belongsLegacy=!h.horario_modelo_id && legacyIds.has(h.id);
+
+    if(belongsToModel || belongsLegacy){
+      const subject=String(h.disciplina||h.nome||'').trim();
+      if(subject)subjects.add(subject);
+    }
+  });
+
+  return [...subjects].sort((a,b)=>a.localeCompare(b,'pt',{sensitivity:'base'}));
+}
+
+function personEvaluations(personId){
+  return S.evaluations
+    .filter(x=>x.pessoa_id===personId)
+    .sort((a,b)=>{
+      const ad=String(a.data||'');
+      const bd=String(b.data||'');
+      if(ad!==bd)return ad.localeCompare(bd);
+      return String(a.cadeira||'').localeCompare(String(b.cadeira||''),'pt');
+    });
+}
+
+async function refreshEvaluations(){
+  S.evaluations=await selOptional('avaliacoes_turma');
+}
+
+function openAceEditor(personId){
+  const p=S.people.find(x=>x.id===personId);
+  if(!p)return;
+
+  modal(
+    'ACE',
+    `<label>ACE em que está inscrito
+      <input name="ace" value="${esc(p.ace||'')}" placeholder="Ex.: Natação, Futebol, Judo...">
+    </label>
+    <small class="muted">Deixa vazio se não estiver inscrito em nenhuma ACE.</small>`,
+    async f=>{
+      const ace=String(f.get('ace')||'').trim()||null;
+      const {error}=await supabase.from('pessoas').update({ace}).eq('id',personId);
+
+      if(error)return toast(error.message);
+
+      p.ace=ace;
+      closeModal();
+      toast('ACE atualizada');
+      await openProfile(personId,true);
+    }
+  );
+}
+
+function openEvaluationEditor(personId,evaluation=null){
+  const subjects=subjectsForPerson(personId);
+  const subjectOptions=subjects
+    .map(s=>`<option value="${esc(s)}"></option>`)
+    .join('');
+
+  modal(
+    evaluation?'Editar avaliação':'Nova avaliação',
+    `<div class="grid2">
+      <label class="full">Cadeira
+        <input
+          name="cadeira"
+          list="evaluationSubjects"
+          required
+          value="${esc(evaluation?.cadeira||'')}"
+          placeholder="Escolhe ou escreve a cadeira">
+        <datalist id="evaluationSubjects">${subjectOptions}</datalist>
+      </label>
+
+      <label>Tipo
+        <select name="tipo">
+          <option value="Teste" ${evaluation?.tipo==='Teste'?'selected':''}>Teste</option>
+          <option value="Exame" ${evaluation?.tipo==='Exame'?'selected':''}>Exame</option>
+          <option value="Trabalho" ${evaluation?.tipo==='Trabalho'?'selected':''}>Trabalho</option>
+          <option value="Apresentação" ${evaluation?.tipo==='Apresentação'?'selected':''}>Apresentação</option>
+          <option value="Outro" ${evaluation?.tipo==='Outro'?'selected':''}>Outro</option>
+        </select>
+      </label>
+
+      <label>Data
+        <input name="data" type="date" required value="${evaluation?.data||''}">
+      </label>
+
+      <label class="full">Observação
+        <input name="observacao" value="${esc(evaluation?.observacao||'')}" placeholder="Opcional">
+      </label>
+    </div>`,
+    async f=>{
+      const payload={
+        pessoa_id:personId,
+        cadeira:String(f.get('cadeira')||'').trim(),
+        tipo:String(f.get('tipo')||'Teste'),
+        data:f.get('data'),
+        observacao:String(f.get('observacao')||'').trim()||null
+      };
+
+      const query=evaluation
+        ? supabase.from('avaliacoes_turma').update(payload).eq('id',evaluation.id)
+        : supabase.from('avaliacoes_turma').insert(payload);
+
+      const {error}=await query;
+      if(error)return toast(error.message);
+
+      closeModal();
+      await refreshEvaluations();
+      toast(evaluation?'Avaliação atualizada':'Avaliação adicionada');
+      await openProfile(personId,true);
+    }
+  );
+}
+
+async function deleteEvaluation(personId,evaluationId){
+  if(!confirm('Apagar esta avaliação?'))return;
+
+  const {error}=await supabase
+    .from('avaliacoes_turma')
+    .delete()
+    .eq('id',evaluationId);
+
+  if(error)return toast(error.message);
+
+  await refreshEvaluations();
+  toast('Avaliação apagada');
+  await openProfile(personId,true);
+}
+
 async function openProfile(personId,turmaMode=false){
   const p=S.people.find(x=>x.id===personId);
   if(!p)return;
@@ -671,6 +827,9 @@ async function openProfile(personId,turmaMode=false){
     const d=today();
     return c.data_inicio<=d&&c.data_fim>=d;
   });
+
+  const turmaSubjects=turmaMode?subjectsForPerson(personId):[];
+  const turmaEvaluations=turmaMode?personEvaluations(personId):[];
 
   const initials=p.nome
     .split(/\s+/)
@@ -717,6 +876,59 @@ async function openProfile(personId,turmaMode=false){
         </div>
       </div>
 
+      ${turmaMode?`
+      <div class="profile-section turma-academic-card">
+        <div class="profile-section-head">
+          <h4>Cadeiras</h4>
+          <span class="badge gray">${turmaSubjects.length}</span>
+        </div>
+        ${
+          turmaSubjects.length
+          ? `<div class="subject-tags">${turmaSubjects.map(s=>`<span class="subject-tag">${esc(s)}</span>`).join('')}</div>`
+          : '<div class="profile-empty">Sem cadeiras encontradas no horário associado.</div>'
+        }
+      </div>
+
+      <div class="profile-section turma-academic-card">
+        <div class="profile-section-head">
+          <h4>ACE</h4>
+          <button type="button" class="secondary tiny-btn" id="profileAceEditBtn">Editar</button>
+        </div>
+        <div class="ace-profile-value">${p.ace?esc(p.ace):'<span class="muted">Sem ACE registada.</span>'}</div>
+      </div>
+
+      <div class="profile-section full turma-academic-card">
+        <div class="profile-section-head">
+          <div>
+            <h4>Avaliações</h4>
+            <small class="muted">Datas de testes, exames, trabalhos e outras avaliações.</small>
+          </div>
+          <button type="button" class="primary tiny-btn" id="profileAddEvaluationBtn">+ Avaliação</button>
+        </div>
+
+        ${
+          turmaEvaluations.length
+          ? `<div class="evaluation-list">${turmaEvaluations.map(ev=>`
+              <div class="evaluation-row ${String(ev.data)>=today()?'upcoming':'past'}">
+                <div class="evaluation-date">
+                  <strong>${fmt(ev.data)}</strong>
+                  <span>${esc(ev.tipo||'Avaliação')}</span>
+                </div>
+                <div class="evaluation-main">
+                  <b>${esc(ev.cadeira||'—')}</b>
+                  ${ev.observacao?`<small>${esc(ev.observacao)}</small>`:''}
+                </div>
+                <div class="evaluation-actions">
+                  <button type="button" class="icon profile-eval-edit" data-id="${ev.id}" title="Editar">✎</button>
+                  <button type="button" class="icon profile-eval-delete" data-id="${ev.id}" title="Apagar">🗑</button>
+                </div>
+              </div>
+            `).join('')}</div>`
+          : '<div class="profile-empty">Sem avaliações registadas.</div>'
+        }
+      </div>
+      `:''}
+
       <div class="profile-section">
         <h4>Constrangimentos recentes</h4>
         ${
@@ -751,6 +963,22 @@ async function openProfile(personId,turmaMode=false){
     $('#profileModal').close();
     openPerson(p);
   };
+
+  if(turmaMode){
+    $('#profileAceEditBtn').onclick=()=>openAceEditor(personId);
+    $('#profileAddEvaluationBtn').onclick=()=>openEvaluationEditor(personId);
+
+    $$('.profile-eval-edit').forEach(btn=>{
+      btn.onclick=()=>{
+        const ev=S.evaluations.find(x=>String(x.id)===String(btn.dataset.id));
+        if(ev)openEvaluationEditor(personId,ev);
+      };
+    });
+
+    $$('.profile-eval-delete').forEach(btn=>{
+      btn.onclick=()=>deleteEvaluation(personId,btn.dataset.id);
+    });
+  }
 
   $('#profileModal').showModal();
 }

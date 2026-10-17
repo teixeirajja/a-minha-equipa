@@ -1220,3 +1220,95 @@ body{
   .class-schedule-arrow{width:42px;height:42px}
   .class-schedule-current h3{font-size:18px}
 }
+
+
+/* V6.6 — ficha académica da Turma */
+.profile-section-head{
+  display:flex;
+  align-items:center;
+  justify-content:space-between;
+  gap:12px;
+  margin-bottom:12px;
+}
+.profile-section-head h4{margin:0}
+.profile-section-head small{display:block;margin-top:3px}
+
+.subject-tags{
+  display:flex;
+  flex-wrap:wrap;
+  gap:7px;
+}
+.subject-tag{
+  display:inline-flex;
+  align-items:center;
+  background:#edf4f8;
+  border:1px solid #d5e1e9;
+  border-radius:999px;
+  padding:7px 10px;
+  font-size:12px;
+  font-weight:700;
+}
+
+.ace-profile-value{
+  min-height:44px;
+  display:flex;
+  align-items:center;
+  font-size:18px;
+  font-weight:800;
+}
+
+.evaluation-list{
+  display:grid;
+  gap:8px;
+}
+.evaluation-row{
+  display:grid;
+  grid-template-columns:125px minmax(0,1fr) auto;
+  gap:14px;
+  align-items:center;
+  border:1px solid var(--line);
+  border-radius:11px;
+  padding:11px 12px;
+  background:#fff;
+}
+.evaluation-row.upcoming{
+  border-left:4px solid #3f78a6;
+}
+.evaluation-row.past{
+  opacity:.72;
+}
+.evaluation-date{
+  display:grid;
+  gap:2px;
+}
+.evaluation-date strong{font-size:14px}
+.evaluation-date span{
+  color:var(--muted);
+  font-size:11px;
+  font-weight:700;
+}
+.evaluation-main{
+  display:grid;
+  gap:3px;
+}
+.evaluation-main small{color:var(--muted)}
+.evaluation-actions{
+  display:flex;
+  gap:5px;
+}
+
+@media(max-width:650px){
+  .evaluation-row{
+    grid-template-columns:1fr auto;
+  }
+  .evaluation-date{
+    grid-column:1;
+  }
+  .evaluation-main{
+    grid-column:1;
+  }
+  .evaluation-actions{
+    grid-column:2;
+    grid-row:1 / span 2;
+  }
+}

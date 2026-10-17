@@ -75,6 +75,37 @@ function multiSortIndicator(buttons,sorts,dataKey){
   });
 }
 
+
+function isEngineeringCourse(course){
+  const c=String(course||'').trim().toUpperCase();
+
+  // MAT é o nome pedido para o grupo. Mantemos SMAT incluído também
+  // para continuar compatível com registos já existentes na base.
+  return ['TM','MAT','SMAT','ENG'].includes(c);
+}
+
+function matchesCourseFilter(course,filterValue){
+  const raw=String(filterValue||'').trim();
+  if(!raw)return true;
+
+  const tokens=raw
+    .split(/[;,]/)
+    .map(x=>x.trim())
+    .filter(Boolean);
+
+  const c=String(course||'').trim().toUpperCase();
+
+  return tokens.some(token=>{
+    const t=token.toUpperCase();
+
+    if(['ENGENHEIROS','ENGENHEIRO'].includes(t)){
+      return isEngineeringCourse(c);
+    }
+
+    return c.includes(t);
+  });
+}
+
 function genericCompare(a,b,key,dir=1,numericKeys=[]){
   let av=a?.[key]??'',bv=b?.[key]??'';
 
@@ -767,7 +798,7 @@ function filterAvailability(){
       !String(r.ano||'').toLowerCase().includes(availColumnFilters.ano)) return false;
 
     if(availColumnFilters.curso &&
-      !String(r.curso||'').toLowerCase().includes(availColumnFilters.curso)) return false;
+      !matchesCourseFilter(r.curso,availColumnFilters.curso)) return false;
 
     if(availColumnFilters.estado &&
       String(r.estado||'').toLowerCase()!==availColumnFilters.estado) return false;
@@ -866,8 +897,7 @@ function renderPeople(){
     .filter(p=>{
       // Grupo rápido
       if(peopleGroupPreset==='ENGENHEIROS'){
-        const engineering=new Set(['TM','ENG','SMAT']);
-        if(!engineering.has(String(p.curso||'').toUpperCase())) return false;
+        if(!isEngineeringCourse(p.curso)) return false;
       }else if(peopleGroupPreset){
         if(String(p.curso||'').toUpperCase()!==peopleGroupPreset) return false;
       }
@@ -890,14 +920,7 @@ function renderPeople(){
       // Curso: aceita vários valores separados por ; ou ,
       // Ex.: TM;ENG;SMAT
       if(peopleFilters.curso){
-        const wanted=peopleFilters.curso
-          .split(/[;,]/)
-          .map(x=>x.trim().toLowerCase())
-          .filter(Boolean);
-
-        const course=String(p.curso||'').toLowerCase();
-
-        if(wanted.length && !wanted.some(x=>course.includes(x))) return false;
+        if(!matchesCourseFilter(p.curso,peopleFilters.curso)) return false;
       }
 
       if(peopleFilters.idade &&
@@ -2382,7 +2405,14 @@ function participantRows(){
     if(state && effective.estado!==state)return false;
 
     if(year && String(p.ano)!==String(year))return false;
-    if(course && `${p.ramo||''}|${p.curso||''}`!==course)return false;
+
+    if(course){
+      if(course==='__ENGENHEIROS__'){
+        if(!isEngineeringCourse(p.curso))return false;
+      }else if(`${p.ramo||''}|${p.curso||''}`!==course){
+        return false;
+      }
+    }
 
     if(q){
       const values=[
@@ -2470,9 +2500,10 @@ function populateParticipantFilters(){
 
   courseSelect.innerHTML=
     '<option value="">Todos os cursos</option>'+
+    '<option value="__ENGENHEIROS__">Engenheiros (TM + MAT + ENG)</option>'+
     courses.map(c=>`<option value="${esc(c.key)}">${esc(c.label)}</option>`).join('');
 
-  if(courses.some(c=>c.key===previousCourse)){
+  if(previousCourse==='__ENGENHEIROS__' || courses.some(c=>c.key===previousCourse)){
     courseSelect.value=previousCourse;
   }
 }

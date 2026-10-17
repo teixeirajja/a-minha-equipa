@@ -112,7 +112,18 @@
       <th><input data-colfilter="numero_corpo" placeholder="Filtrar"></th>
       <th><input data-colfilter="nome" placeholder="Filtrar"></th>
       <th><input data-colfilter="ano" placeholder="Filtrar"></th>
-      <th><input data-colfilter="curso" placeholder="Filtrar"></th>
+      <th>
+        <input data-colfilter="curso" list="courseFilterOptions" placeholder="Filtrar">
+        <datalist id="courseFilterOptions">
+          <option value="Engenheiros">
+          <option value="TM">
+          <option value="MAT">
+          <option value="SMAT">
+          <option value="ENG">
+          <option value="MED">
+          <option value="SME">
+        </datalist>
+      </th>
       <th>
         <select data-colfilter="estado">
           <option value="">Todos</option>
@@ -159,7 +170,7 @@
   <label>Grupo rápido
     <select id="peopleGroupPreset">
       <option value="">Todos</option>
-      <option value="ENGENHEIROS">Engenheiros (TM + ENG + SMAT)</option>
+      <option value="ENGENHEIROS">Engenheiros (TM + MAT + ENG)</option>
       <option value="MED">Medicina (MED)</option>
       <option value="TM">TM</option>
       <option value="ENG">ENG</option>
@@ -194,7 +205,18 @@
           <option value="GNR">GNR</option>
         </select>
       </th>
-      <th><input data-pfilter="curso" placeholder="Filtrar"></th>
+      <th>
+        <input data-pfilter="curso" list="peopleCourseFilterOptions" placeholder="Filtrar">
+        <datalist id="peopleCourseFilterOptions">
+          <option value="Engenheiros">
+          <option value="TM">
+          <option value="MAT">
+          <option value="SMAT">
+          <option value="ENG">
+          <option value="MED">
+          <option value="SME">
+        </datalist>
+      </th>
       <th><input data-pfilter="idade" placeholder="Filtrar"></th>
       <th><input data-pfilter="localidade" placeholder="Filtrar"></th>
       <th><button id="resetPeopleFilters" type="button" class="secondary tiny-btn">Limpar</button></th>

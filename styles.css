@@ -867,3 +867,79 @@ aside nav{
     overflow:visible;
   }
 }
+
+/* V5.17.1 — FIX crítico da sidebar fixa
+   Mantém a barra verde no grid e só a área branca faz scroll. */
+
+body{
+  overflow:auto;
+}
+
+.app{
+  display:grid;
+  grid-template-columns:235px minmax(0,1fr);
+  width:100%;
+  height:100vh;
+  min-height:0;
+  overflow:hidden;
+}
+
+.app > aside{
+  position:sticky;
+  top:0;
+  left:auto;
+  bottom:auto;
+  width:auto;
+  height:100vh;
+  box-sizing:border-box;
+  overflow:hidden;
+  z-index:10;
+}
+
+.app > main{
+  margin-left:0;
+  min-width:0;
+  width:auto;
+  height:100vh;
+  overflow-y:auto;
+  overflow-x:hidden;
+}
+
+.app > aside nav{
+  min-height:0;
+  overflow-y:auto;
+}
+
+.login-app-logo{
+  padding:0 !important;
+  overflow:hidden;
+  background:transparent !important;
+}
+
+.login-app-logo img{
+  display:block;
+  width:100%;
+  height:100%;
+  object-fit:cover;
+  border-radius:14px;
+}
+
+@media(max-width:780px){
+  .app{
+    display:block;
+    height:auto;
+    overflow:visible;
+  }
+
+  .app > aside{
+    position:static;
+    width:auto;
+    height:auto;
+    overflow:visible;
+  }
+
+  .app > main{
+    height:auto;
+    overflow:visible;
+  }
+}

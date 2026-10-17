@@ -841,18 +841,18 @@ Não requer SQL novo.
 Não requer SQL novo.
 
 
-## V6.5 — Horários da Turma em carrossel
+## V6.5.1 — FIX Horários da Turma
 
-A página `Horários` da Turma deixou de apresentar quatro cartões.
+A V6.5 anterior não chegou a incluir a alteração no `app.js` final.
 
-Agora:
-- aparece um horário completo de cada vez;
-- o horário é mostrado diretamente em grelha semanal;
-- acima da grelha aparece a lista das pessoas associadas a esse horário;
-- setas `←` e `→` permitem navegar por `TM_1`, `TM_2`, `TM_3` e `TM_4`;
-- a navegação é circular: depois do último volta ao primeiro e vice-versa;
-- existe também navegação no fundo da tabela.
+Esta versão corrige efetivamente:
+- um horário por vez;
+- grelha semanal aberta diretamente;
+- pessoas associadas mostradas por cima;
+- setas esquerda/direita para TM_1, TM_2, TM_3 e TM_4;
+- navegação circular;
+- botões Anterior/Seguinte também no fundo.
 
-Os dados continuam a ser lidos dos mesmos horários do Supabase.
+Foi também adicionado `?v=6.5.1` ao CSS e JS para impedir que o browser/GitHub Pages reutilize ficheiros antigos em cache.
 
 Não requer SQL novo.

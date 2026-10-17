@@ -1134,7 +1134,8 @@ body{
   .module-video-bg{display:none}
 }
 
-/* V6.5 — horários da Turma em carrossel/tabela */
+
+/* V6.5.1 — Horários da Turma em carrossel */
 #classScheduleList{
   padding:18px;
 }
@@ -1156,25 +1157,10 @@ body{
   background:#f8fafb;
 }
 
-.class-schedule-current{
-  text-align:center;
-}
-
-.class-schedule-current small{
-  color:var(--muted);
-  font-weight:700;
-}
-
-.class-schedule-current h3{
-  margin:3px 0 2px;
-  font-size:22px;
-}
-
-.class-schedule-current p{
-  margin:0;
-  color:var(--muted);
-  font-size:13px;
-}
+.class-schedule-current{text-align:center}
+.class-schedule-current small{color:var(--muted);font-weight:700}
+.class-schedule-current h3{margin:3px 0 2px;font-size:22px}
+.class-schedule-current p{margin:0;color:var(--muted);font-size:13px}
 
 .class-schedule-arrow{
   width:50px;
@@ -1187,30 +1173,15 @@ body{
   color:#183247;
   display:grid;
   place-items:center;
-  transition:transform .15s ease,background .15s ease;
 }
-
-.class-schedule-arrow:hover{
-  transform:scale(1.06);
-  background:#eef5fa;
-}
+.class-schedule-arrow:hover{background:#eef5fa;transform:scale(1.05)}
 
 .class-schedule-owners{
   padding:14px 20px;
   border-bottom:1px solid var(--line);
 }
-
-.class-schedule-owners-title{
-  font-weight:800;
-  margin-bottom:8px;
-}
-
-.class-schedule-people{
-  display:flex;
-  gap:7px;
-  flex-wrap:wrap;
-}
-
+.class-schedule-owners-title{font-weight:800;margin-bottom:8px}
+.class-schedule-people{display:flex;gap:7px;flex-wrap:wrap}
 .class-schedule-person{
   background:#edf4f8;
   border:1px solid #d4e1e9;
@@ -1223,10 +1194,7 @@ body{
   padding:18px;
   background:#fff;
 }
-
-.class-inline-week-grid{
-  min-width:900px;
-}
+.class-inline-week-grid{min-width:900px}
 
 .class-schedule-nav-bottom{
   display:flex;
@@ -1237,7 +1205,6 @@ body{
   border-top:1px solid var(--line);
   background:#fafbfb;
 }
-
 .class-schedule-nav-bottom span{
   font-weight:800;
   min-width:44px;
@@ -1250,13 +1217,6 @@ body{
     gap:8px;
     padding:14px 10px;
   }
-
-  .class-schedule-arrow{
-    width:42px;
-    height:42px;
-  }
-
-  .class-schedule-current h3{
-    font-size:18px;
-  }
+  .class-schedule-arrow{width:42px;height:42px}
+  .class-schedule-current h3{font-size:18px}
 }

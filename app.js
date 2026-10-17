@@ -20,6 +20,7 @@ let historySorts=[{key:'data',dir:-1}];
 let externalSorts=[{key:'nome',dir:1}];
 let scheduleBlockSorts=[{key:'dia',dir:1},{key:'inicio',dir:1}];
 let currentScheduleViewerBlocks=[];
+let classScheduleIndex=0;
 
 let classSorts=[{key:'nome',dir:1}];
 let classFilters={numero_corpo:'',nome:'',posto:'',ano:'',ramo:'',nim:''};
@@ -240,54 +241,86 @@ function renderClassSchedules(){
 
   const models=classScheduleModels();
 
-  target.innerHTML=models.map(m=>{
-    const blocks=scheduleBlocksForModel(m.id);
-    const people=schedulePeopleForModel(m.id);
+  if(!models.length){
+    target.innerHTML=`
+      <div class="summary">
+        Não foram encontrados horários com nomes
+        <b>6.º ANO TM_1</b> até <b>6.º ANO TM_4</b>.
+      </div>`;
+    return;
+  }
 
-    const dayCounts=new Map();
-    blocks.forEach(b=>{
-      dayCounts.set(
-        b.dia_semana,
-        (dayCounts.get(b.dia_semana)||0)+1
-      );
+  if(classScheduleIndex<0)classScheduleIndex=models.length-1;
+  if(classScheduleIndex>=models.length)classScheduleIndex=0;
+
+  const m=models[classScheduleIndex];
+  const blocks=scheduleBlocksForModel(m.id);
+  const people=schedulePeopleForModel(m.id)
+    .sort((a,b)=>{
+      const an=Number(a.numero_corpo),bn=Number(b.numero_corpo);
+      if(!Number.isNaN(an)&&!Number.isNaN(bn))return an-bn;
+      return String(a.nome||'').localeCompare(String(b.nome||''),'pt');
     });
 
-    return `<div class="schedule-model-card class-schedule-card">
-      <div class="schedule-model-top">
-        <div>
-          <h4>${esc(m.nome)}</h4>
-          <div class="schedule-model-meta">
-            ${fmt(m.data_inicio)} → ${fmt(m.data_fim)}
-            · ${blocks.length} bloco(s)
-            · ${people.length} pessoa(s)
-          </div>
-          <div class="schedule-day-chips">
-            ${[...dayCounts.entries()]
-              .sort((a,b)=>a[0]-b[0])
-              .map(([d,n])=>`<span class="schedule-chip">${day(d)} · ${n}</span>`)
-              .join('')}
-          </div>
+  const peopleHtml=people.length
+    ? people.map(p=>`
+        <span class="class-schedule-person">
+          <b>${esc(p.numero_corpo||'—')}</b> · ${esc(p.nome)}
+        </span>
+      `).join('')
+    : '<span class="muted">Sem pessoas associadas.</span>';
+
+  target.innerHTML=`
+    <div class="class-schedule-carousel">
+      <div class="class-schedule-carousel-head">
+        <button type="button" class="class-schedule-arrow" id="classSchedulePrev"
+          title="Horário anterior" aria-label="Horário anterior">←</button>
+
+        <div class="class-schedule-current">
+          <small>Horário ${classScheduleIndex+1} de ${models.length}</small>
+          <h3>${esc(m.nome)}</h3>
+          <p>${fmt(m.data_inicio)} → ${fmt(m.data_fim)} · ${blocks.length} bloco(s)</p>
         </div>
 
-        <div class="schedule-model-actions">
-          <button
-            type="button"
-            class="export-btn view-class-schedule"
-            data-id="${m.id}">
-            Ver horário
-          </button>
+        <button type="button" class="class-schedule-arrow" id="classScheduleNext"
+          title="Próximo horário" aria-label="Próximo horário">→</button>
+      </div>
+
+      <div class="class-schedule-owners">
+        <div class="class-schedule-owners-title">
+          ${people.length===1?'Pertence a 1 pessoa':`Pertence a ${people.length} pessoas`}
+        </div>
+        <div class="class-schedule-people">${peopleHtml}</div>
+      </div>
+
+      <div class="weekly-grid-wrap class-inline-week-wrap">
+        <div class="weekly-grid class-inline-week-grid">
+          ${buildWeekGridHtml(blocks)}
         </div>
       </div>
-    </div>`;
-  }).join('') || `
-    <div class="summary">
-      Não foram encontrados horários com nomes
-      <b>6.º ANO TM_1</b> até <b>6.º ANO TM_4</b>.
-    </div>`;
 
-  $$('.view-class-schedule').forEach(btn=>{
-    btn.onclick=()=>openScheduleViewerByModel(btn.dataset.id);
-  });
+      <div class="class-schedule-nav-bottom">
+        <button type="button" class="secondary" id="classSchedulePrevBottom">← Anterior</button>
+        <span>${classScheduleIndex+1} / ${models.length}</span>
+        <button type="button" class="secondary" id="classScheduleNextBottom">Seguinte →</button>
+      </div>
+    </div>
+  `;
+
+  const previous=()=>{
+    classScheduleIndex=(classScheduleIndex-1+models.length)%models.length;
+    renderClassSchedules();
+  };
+
+  const next=()=>{
+    classScheduleIndex=(classScheduleIndex+1)%models.length;
+    renderClassSchedules();
+  };
+
+  $('#classSchedulePrev').onclick=previous;
+  $('#classScheduleNext').onclick=next;
+  $('#classSchedulePrevBottom').onclick=previous;
+  $('#classScheduleNextBottom').onclick=next;
 }
 
 function renderClassModule(){
@@ -1839,7 +1872,7 @@ function schedulePeopleForModel(modelId){
   return S.people.filter(p=>ids.has(p.id));
 }
 
-function renderViewerWeekGrid(blocks){
+function buildWeekGridHtml(blocks){
   const startMin=8*60;
   const endMin=20*60;
   const slot=30;
@@ -1890,7 +1923,11 @@ function renderViewerWeekGrid(blocks){
     </div>`;
   });
 
-  $('#scheduleViewerGrid').innerHTML=html;
+  return html;
+}
+
+function renderViewerWeekGrid(blocks){
+  $('#scheduleViewerGrid').innerHTML=buildWeekGridHtml(blocks);
 }
 
 function renderScheduleViewerBlocks(){

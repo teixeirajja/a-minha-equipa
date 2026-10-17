@@ -796,3 +796,74 @@ label small.muted{font-weight:400;margin-top:-2px;color:var(--muted)}
     min-width:96px;
   }
 }
+
+/* V5.17 — novo ícone + sidebar fixa */
+html, body{
+  height:100%;
+}
+
+body{
+  overflow:hidden;
+}
+
+aside{
+  position:fixed;
+  top:0;
+  left:0;
+  bottom:0;
+  height:100vh;
+  overflow:hidden;
+  z-index:100;
+}
+
+main{
+  margin-left:200px;
+  height:100vh;
+  overflow-y:auto;
+  overflow-x:hidden;
+}
+
+.app-logo{
+  overflow:hidden;
+  padding:0 !important;
+  background:transparent !important;
+  border-radius:10px;
+  flex:0 0 auto;
+}
+
+.app-logo img{
+  display:block;
+  width:100%;
+  height:100%;
+  object-fit:cover;
+  border-radius:10px;
+}
+
+/* mantém a navegação e rodapé visíveis dentro da barra verde */
+aside nav{
+  overflow-y:auto;
+  min-height:0;
+}
+
+.aside-bottom{
+  margin-top:auto;
+}
+
+/* mobile: volta ao comportamento normal para não bloquear o ecrã */
+@media(max-width:780px){
+  body{
+    overflow:auto;
+  }
+
+  aside{
+    position:static;
+    height:auto;
+    overflow:visible;
+  }
+
+  main{
+    margin-left:0;
+    height:auto;
+    overflow:visible;
+  }
+}

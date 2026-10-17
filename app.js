@@ -6,6 +6,13 @@ const supabase=createClient(
 );
 const $=s=>document.querySelector(s), $$=s=>[...document.querySelectorAll(s)];
 let S={people:[],constraints:[],schedules:[],schedulePeople:[],scheduleModels:[],scheduleModelPeople:[],events:[],assigned:[],history:[],availability:[]};
+let constraintSort={key:'inicio',dir:-1};
+let constraintFilters={pessoa:'',tipo:'',estado:'',inicio:'',fim:'',observacao:''};
+let expandedConstraints=new Set();
+
+let peopleSort={key:'nome',dir:1};
+let peopleFilters={numero_corpo:'',nome:'',posto:'',ano:'',ramo:'',curso:'',idade:'',localidade:''};
+
 let availSort={key:'nome',dir:1};
 let availColumnFilters={
   numero_corpo:'',
@@ -49,7 +56,7 @@ async function load(){
   });
   render();
 }
-function render(){renderHome();renderPeople();renderConstraints();renderSchedules();renderEvents();renderHistory()}
+function render(){renderHome();renderPeople();renderExternalPeople();renderConstraints();renderSchedules();renderEvents();renderHistory()}
 
 function eventAutoStatus(e){
   if(e.estado_manual) return e.estado_manual;
@@ -97,7 +104,7 @@ function eventIsCancelled(e){
 
 function renderHome(){
   const d=today();
-  const active=S.people.filter(p=>p.ativo!==false);
+  const active=S.people.filter(p=>p.ativo!==false && p.integra_equipa!==false);
 
   $('#sPeople').textContent=active.length;
   $('#sYear5').textContent=active.filter(p=>Number(p.ano)===5).length;
@@ -245,10 +252,36 @@ function filterAvailability(){
   });
 }
 function renderPeople(){
-  const q=$('#personSearch').value?.toLowerCase()||'';
-  const rows=S.people.filter(p=>!q||[
-    p.nome,p.numero_corpo,p.curso,p.ramo,p.localidade
-  ].some(v=>String(v||'').toLowerCase().includes(q)));
+  $$('#peopleTable [data-pfilter]').forEach(el=>{
+    peopleFilters[el.dataset.pfilter]=String(el.value||'').trim().toLowerCase();
+  });
+
+  let rows=S.people.filter(p=>p.integra_equipa!==false).filter(p=>{
+    if(peopleFilters.numero_corpo && !String(p.numero_corpo||'').toLowerCase().includes(peopleFilters.numero_corpo)) return false;
+    if(peopleFilters.nome && !String(p.nome||'').toLowerCase().includes(peopleFilters.nome)) return false;
+    if(peopleFilters.posto && !String(p.posto||'').toLowerCase().includes(peopleFilters.posto)) return false;
+    if(peopleFilters.ano && !String(p.ano||'').toLowerCase().includes(peopleFilters.ano)) return false;
+    if(peopleFilters.ramo && String(p.ramo||'').toLowerCase()!==peopleFilters.ramo) return false;
+    if(peopleFilters.curso && !String(p.curso||'').toLowerCase().includes(peopleFilters.curso)) return false;
+    if(peopleFilters.idade && !String(p.idade||'').toLowerCase().includes(peopleFilters.idade)) return false;
+    if(peopleFilters.localidade && !String(p.localidade||'').toLowerCase().includes(peopleFilters.localidade)) return false;
+    return true;
+  });
+
+  rows=[...rows].sort((a,b)=>{
+    let av=a[peopleSort.key],bv=b[peopleSort.key];
+
+    if(peopleSort.key==='numero_corpo'){
+      const an=Number(av),bn=Number(bv);
+      if(!Number.isNaN(an)&&!Number.isNaN(bn)) return (an-bn)*peopleSort.dir;
+    }
+
+    if(['ano','idade'].includes(peopleSort.key)){
+      return ((Number(av)||0)-(Number(bv)||0))*peopleSort.dir;
+    }
+
+    return String(av??'').localeCompare(String(bv??''),'pt',{numeric:true,sensitivity:'base'})*peopleSort.dir;
+  });
 
   $('#peopleBody').innerHTML=rows.map(p=>`
     <tr class="person-row" data-profile="${p.id}">
@@ -283,7 +316,151 @@ function renderPeople(){
     e.stopPropagation();
     del('pessoas','id',b.dataset.id);
   });
+
+  $$('#peopleTable .sort-head').forEach(btn=>{
+    btn.classList.toggle('active',btn.dataset.psort===peopleSort.key);
+    btn.querySelector('span').textContent=
+      btn.dataset.psort===peopleSort.key
+      ? (peopleSort.dir===1?'↑':'↓')
+      : '↕';
+  });
 }
+
+function renderExternalPeople(){
+  const rows=S.people
+    .filter(p=>p.integra_equipa===false)
+    .sort((a,b)=>a.nome.localeCompare(b.nome,'pt'));
+
+  $('#externalPeopleCount').textContent=rows.length;
+
+  $('#externalPeopleBody').innerHTML=rows.map(p=>`
+    <tr class="external-person-row" data-profile="${p.id}">
+      <td>${esc(p.numero_corpo||'—')}</td>
+      <td><b>${esc(p.nome)}</b></td>
+      <td>${esc(p.posto||'')}</td>
+      <td>${esc(p.funcao||'—')}</td>
+      <td>${esc(p.ramo||'')}</td>
+      <td>${esc(p.curso||'')}</td>
+      <td>
+        <div class="row-actions">
+          <button class="icon epx" data-id="${p.id}" title="Editar">✎</button>
+          <button class="icon dpx" data-id="${p.id}" title="Apagar">🗑</button>
+        </div>
+      </td>
+    </tr>
+  `).join('');
+
+  $$('.external-person-row').forEach(row=>row.onclick=e=>{
+    if(e.target.closest('button'))return;
+    openProfile(row.dataset.profile);
+  });
+
+  $$('.epx').forEach(b=>b.onclick=e=>{
+    e.stopPropagation();
+    openPerson(S.people.find(p=>p.id===b.dataset.id),true);
+  });
+
+  $$('.dpx').forEach(b=>b.onclick=e=>{
+    e.stopPropagation();
+    del('pessoas','id',b.dataset.id);
+  });
+}
+
+function openPerson(p=null,forceExternal=false){
+  const isExternal=forceExternal || p?.integra_equipa===false;
+
+  modal(
+    p?'Editar pessoa':(isExternal?'Nova pessoa externa':'Nova pessoa'),
+    `<div class="grid2">
+      <label>Nº Corpo
+        <input name="numero_corpo" value="${esc(p?.numero_corpo||'')}">
+      </label>
+
+      <label>Posto
+        <input name="posto" value="${esc(p?.posto||'')}">
+      </label>
+
+      <label class="full">Nome
+        <input name="nome" required value="${esc(p?.nome||'')}">
+      </label>
+
+      <label>Ano
+        <input name="ano" type="number" value="${p?.ano||''}">
+      </label>
+
+      <label>Ramo
+        <select name="ramo">
+          <option value="EXE" ${p?.ramo==='EXE'?'selected':''}>EXE</option>
+          <option value="GNR" ${p?.ramo==='GNR'?'selected':''}>GNR</option>
+        </select>
+      </label>
+
+      <label>Curso
+        <input name="curso" value="${esc(p?.curso||'')}">
+      </label>
+
+      <label>Idade
+        <input name="idade" type="number" min="15" max="100" value="${p?.idade??''}">
+      </label>
+
+      <label>Sexo
+        <select name="sexo">
+          <option value="" ${!p?.sexo?'selected':''}>Por preencher</option>
+          <option value="F" ${p?.sexo==='F'?'selected':''}>Feminino</option>
+          <option value="M" ${p?.sexo==='M'?'selected':''}>Masculino</option>
+        </select>
+      </label>
+
+      <label>Integra a equipa
+        <select name="integra_equipa">
+          <option value="true" ${!isExternal?'selected':''}>Sim</option>
+          <option value="false" ${isExternal?'selected':''}>Não — externa</option>
+        </select>
+      </label>
+
+      <label>Função
+        <select name="funcao">
+          <option value="" ${!p?.funcao?'selected':''}>Sem função</option>
+          <option value="CPel" ${p?.funcao==='CPel'?'selected':''}>CPel</option>
+          <option value="CBat" ${p?.funcao==='CBat'?'selected':''}>CBat</option>
+          <option value="CCA" ${p?.funcao==='CCA'?'selected':''}>CCA</option>
+          <option value="CACA" ${p?.funcao==='CACA'?'selected':''}>CACA</option>
+          <option value="OUTRA" ${p?.funcao==='OUTRA'?'selected':''}>Outra</option>
+        </select>
+      </label>
+
+      <label class="full">Localidade
+        <input name="localidade" value="${esc(p?.localidade||'')}">
+      </label>
+    </div>`,
+    async f=>{
+      const x={
+        numero_corpo:f.get('numero_corpo')||null,
+        posto:f.get('posto')||null,
+        nome:f.get('nome'),
+        ano:f.get('ano')?Number(f.get('ano')):null,
+        ramo:f.get('ramo'),
+        curso:f.get('curso')||null,
+        idade:f.get('idade')?Number(f.get('idade')):null,
+        sexo:f.get('sexo')||null,
+        localidade:f.get('localidade')||null,
+        integra_equipa:f.get('integra_equipa')==='true',
+        funcao:f.get('funcao')||null
+      };
+
+      const r=p
+        ? await supabase.from('pessoas').update(x).eq('id',p.id)
+        : await supabase.from('pessoas').insert(x);
+
+      if(r.error)return toast(r.error.message);
+
+      closeModal();
+      toast('Pessoa guardada');
+      await load();
+    }
+  );
+}
+
 function constraintStatusBadge(c){
   const map={
     IMPEDITIVO:['red','Impeditivo'],
@@ -299,12 +476,54 @@ function constraintDateTime(date,time){
   return `${fmt(date)}${time?` · ${time.slice(0,5)}`:''}`;
 }
 
-function renderConstraints(){
-  const rows=[...S.constraints].sort((a,b)=>
-    String(b.data_inicio).localeCompare(String(a.data_inicio))
-  );
+function constraintTimestamp(c,which='start'){
+  const d=which==='start'?c.data_inicio:c.data_fim;
+  const t=which==='start'?(c.hora_inicio||'00:00'):(c.hora_fim||'23:59');
+  return `${d||''}T${t}`;
+}
 
-  $('#constraintsBody').innerHTML=rows.map(c=>`
+function isPastConstraint(c){
+  const end=new Date(constraintTimestamp(c,'end'));
+  return end < new Date();
+}
+
+function getConstraintRows(past=false){
+  $$('#constraintsTable [data-cfilter]').forEach(el=>{
+    constraintFilters[el.dataset.cfilter]=String(el.value||'').trim().toLowerCase();
+  });
+
+  let rows=S.constraints.filter(c=>isPastConstraint(c)===past);
+
+  rows=rows.filter(c=>{
+    const person=pName(c.pessoa_id);
+    const ini=constraintDateTime(c.data_inicio,c.hora_inicio);
+    const fim=constraintDateTime(c.data_fim,c.hora_fim);
+
+    if(constraintFilters.pessoa && !String(person).toLowerCase().includes(constraintFilters.pessoa)) return false;
+    if(constraintFilters.tipo && !String(c.tipo||'').toLowerCase().includes(constraintFilters.tipo)) return false;
+    if(constraintFilters.estado && String(c.estado||'IMPEDITIVO').toLowerCase()!==constraintFilters.estado) return false;
+    if(constraintFilters.inicio && !String(ini).toLowerCase().includes(constraintFilters.inicio)) return false;
+    if(constraintFilters.fim && !String(fim).toLowerCase().includes(constraintFilters.fim)) return false;
+    if(constraintFilters.observacao && !String(c.observacao||'').toLowerCase().includes(constraintFilters.observacao)) return false;
+
+    return true;
+  });
+
+  rows.sort((a,b)=>{
+    let av,bv;
+    if(constraintSort.key==='pessoa'){av=pName(a.pessoa_id);bv=pName(b.pessoa_id);}
+    else if(constraintSort.key==='inicio'){av=constraintTimestamp(a,'start');bv=constraintTimestamp(b,'start');}
+    else if(constraintSort.key==='fim'){av=constraintTimestamp(a,'end');bv=constraintTimestamp(b,'end');}
+    else {av=a[constraintSort.key]??'';bv=b[constraintSort.key]??'';}
+
+    return String(av).localeCompare(String(bv),'pt',{numeric:true,sensitivity:'base'})*constraintSort.dir;
+  });
+
+  return rows;
+}
+
+function constraintRowsHtml(rows){
+  return rows.map(c=>`
     <tr>
       <td>${esc(pName(c.pessoa_id))}</td>
       <td>${esc(c.tipo)}</td>
@@ -314,425 +533,66 @@ function renderConstraints(){
       <td>${esc(c.observacao||'')}</td>
       <td>
         <div class="row-actions">
+          <button class="expand-row-btn xc" data-id="${c.id}" title="Ver detalhes">${expandedConstraints.has(c.id)?'Fechar':'Ver'}</button>
           <button class="icon ec" data-id="${c.id}" title="Editar">✎</button>
           <button class="icon dc" data-id="${c.id}" title="Apagar">🗑</button>
         </div>
       </td>
     </tr>
+    ${expandedConstraints.has(c.id)?`
+      <tr class="constraint-detail-row">
+        <td colspan="7">
+          <div class="constraint-detail">
+            <div class="constraint-detail-item"><span>Pessoa</span><b>${esc(pName(c.pessoa_id))}</b></div>
+            <div class="constraint-detail-item"><span>Tipo</span><b>${esc(c.tipo||'—')}</b></div>
+            <div class="constraint-detail-item"><span>Estado</span><b>${esc(c.estado||'IMPEDITIVO')}</b></div>
+            <div class="constraint-detail-item"><span>Observação</span><b>${esc(c.observacao||'—')}</b></div>
+            <div class="constraint-detail-item"><span>Data início</span><b>${fmt(c.data_inicio)}</b></div>
+            <div class="constraint-detail-item"><span>Hora início</span><b>${c.hora_inicio?c.hora_inicio.slice(0,5):'Dia inteiro'}</b></div>
+            <div class="constraint-detail-item"><span>Data fim</span><b>${fmt(c.data_fim)}</b></div>
+            <div class="constraint-detail-item"><span>Hora fim</span><b>${c.hora_fim?c.hora_fim.slice(0,5):'Dia inteiro'}</b></div>
+          </div>
+        </td>
+      </tr>
+    `:''}
   `).join('');
+}
 
-  $$('.ec').forEach(b=>b.onclick=()=>openConstraint(
-    S.constraints.find(c=>c.id===b.dataset.id)
-  ));
+function bindConstraintRowActions(){
+  $$('.xc').forEach(b=>b.onclick=()=>{
+    expandedConstraints.has(b.dataset.id)
+      ? expandedConstraints.delete(b.dataset.id)
+      : expandedConstraints.add(b.dataset.id);
+    renderConstraints();
+  });
+  $$('.ec').forEach(b=>b.onclick=()=>openConstraint(S.constraints.find(c=>c.id===b.dataset.id)));
   $$('.dc').forEach(b=>b.onclick=()=>del('constrangimentos','id',b.dataset.id));
 }
-function renderSchedules(){
-  const models=S.scheduleModels;
 
-  const modelHtml=models.map(m=>{
-    const blocks=S.schedules
-      .filter(h=>h.horario_modelo_id===m.id)
-      .sort((a,b)=>a.dia_semana-b.dia_semana||a.hora_inicio.localeCompare(b.hora_inicio));
+function renderConstraints(){
+  const current=getConstraintRows(false);
+  const past=getConstraintRows(true);
 
-    const peopleCount=S.scheduleModelPeople
-      .filter(x=>x.horario_modelo_id===m.id).length;
+  $('#constraintsBody').innerHTML=current.length
+    ? constraintRowsHtml(current)
+    : '<tr><td colspan="7" class="muted">Sem constrangimentos atuais/futuros.</td></tr>';
 
-    const dayCounts=new Map();
-    blocks.forEach(b=>dayCounts.set(b.dia_semana,(dayCounts.get(b.dia_semana)||0)+1));
+  $('#pastConstraintsBody').innerHTML=past.length
+    ? constraintRowsHtml(past)
+    : '<tr><td colspan="7" class="muted">Sem constrangimentos passados.</td></tr>';
 
-    return `<div class="schedule-model-card">
-      <div class="schedule-model-top">
-        <div>
-          <h4>${esc(m.nome)}</h4>
-          <div class="schedule-model-meta">
-            ${fmt(m.data_inicio)} → ${fmt(m.data_fim)}
-            · ${blocks.length} bloco(s)
-            · ${peopleCount} pessoa(s)
-          </div>
-          <div class="schedule-day-chips">
-            ${[...dayCounts.entries()].map(([d,n])=>`<span class="schedule-chip">${day(d)} · ${n}</span>`).join('')}
-          </div>
-        </div>
-        <div class="row-actions">
-          <button class="icon edit-model-schedule" data-id="${m.id}" title="Editar">✎</button>
-          <button class="icon delete-model-schedule" data-id="${m.id}" title="Apagar">🗑</button>
-        </div>
-      </div>
-    </div>`;
-  }).join('');
+  $('#pastConstraintsCount').textContent=past.length;
 
-  const legacy=S.schedules.filter(h=>!h.horario_modelo_id);
-  const legacyHtml=legacy.length
-    ? `<div class="legacy-schedules">
-        <div class="summary"><b>Blocos antigos</b> — continuam válidos, mas os novos horários devem ser criados pelo editor completo.</div>
-        ${legacy.map(h=>`<div class="card">
-          <div>
-            <h4>${esc(h.nome)}</h4>
-            <p>${day(h.dia_semana)} · ${h.hora_inicio.slice(0,5)}–${h.hora_fim.slice(0,5)} · ${esc(h.tipo_aula)}</p>
-            <p>${fmt(h.data_inicio)} → ${fmt(h.data_fim)} · ${S.schedulePeople.filter(x=>x.horario_id===h.id).length} pessoa(s)</p>
-          </div>
-          <div class="row-actions">
-            <button class="icon edit-legacy-schedule" data-id="${h.id}">✎</button>
-            <button class="icon delete-legacy-schedule" data-id="${h.id}">🗑</button>
-          </div>
-        </div>`).join('')}
-      </div>`
-    : '';
-
-  $('#scheduleList').innerHTML=
-    (modelHtml||'<div class="summary">Ainda não existem horários completos.</div>')+
-    legacyHtml;
-
-  $$('.edit-model-schedule').forEach(b=>b.onclick=()=>openScheduleWizard(
-    S.scheduleModels.find(x=>x.id===b.dataset.id)
-  ));
-  $$('.delete-model-schedule').forEach(b=>b.onclick=()=>deleteScheduleModel(b.dataset.id));
-
-  $$('.edit-legacy-schedule').forEach(b=>b.onclick=()=>openLegacySchedule(
-    S.schedules.find(x=>x.id===b.dataset.id)
-  ));
-  $$('.delete-legacy-schedule').forEach(b=>b.onclick=()=>del('horarios_base','id',b.dataset.id));
-}
-function renderEvents(){
-  $('#eventsBody').innerHTML=S.events.map(e=>`
-    <tr>
-      <td>${fmt(e.data)}</td>
-      <td>${e.hora_inicio?.slice(0,5)||''}${e.hora_fim?'–'+e.hora_fim.slice(0,5):''}</td>
-      <td>${esc(e.nome)}</td>
-      <td>${eventStatusBadge(e)}</td>
-      <td>${S.assigned.filter(a=>a.evento_id===e.id).length}</td>
-      <td>
-        <div class="event-export-menu">
-          <button class="export-btn export-csv" data-id="${e.id}" title="Exportar empenhados para CSV">CSV</button>
-          <button class="export-btn export-print" data-id="${e.id}" title="Imprimir ou guardar em PDF">PDF</button>
-          <button class="icon ee" data-id="${e.id}" title="Editar">✎</button>
-          <button class="icon de" data-id="${e.id}" title="Apagar">🗑</button>
-        </div>
-      </td>
-    </tr>
-  `).join('');
-
-  $$('.ee').forEach(b=>b.onclick=()=>openEventWizard(S.events.find(e=>e.id===b.dataset.id)));
-  $$('.de').forEach(b=>b.onclick=()=>deleteEvent(b.dataset.id));
-  $$('.export-csv').forEach(b=>b.onclick=()=>exportEventCsv(b.dataset.id));
-  $$('.export-print').forEach(b=>b.onclick=()=>exportEventPdf(b.dataset.id));
-}
-function eventAssignedPeople(eventId){
-  const ids=new Set(
-    S.assigned
-      .filter(a=>a.evento_id===eventId)
-      .map(a=>a.pessoa_id)
-  );
-
-  return S.people
-    .filter(p=>ids.has(p.id))
-    .sort((a,b)=>{
-      const an=Number(a.numero_corpo),bn=Number(b.numero_corpo);
-      if(!Number.isNaN(an)&&!Number.isNaN(bn)) return an-bn;
-      return a.nome.localeCompare(b.nome,'pt');
-    });
-}
-
-function csvEscape(value){
-  const s=String(value??'');
-  if(/[;"\n\r]/.test(s)) return `"${s.replaceAll('"','""')}"`;
-  return s;
-}
-
-function safeFileName(value){
-  return String(value||'evento')
-    .normalize('NFD')
-    .replace(/[\u0300-\u036f]/g,'')
-    .replace(/[^a-zA-Z0-9_-]+/g,'_')
-    .replace(/^_+|_+$/g,'')
-    .slice(0,80) || 'evento';
-}
-
-function downloadText(filename,text,type='text/plain;charset=utf-8'){
-  const blob=new Blob(['\ufeff',text],{type});
-  const url=URL.createObjectURL(blob);
-  const a=document.createElement('a');
-  a.href=url;
-  a.download=filename;
-  document.body.appendChild(a);
-  a.click();
-  a.remove();
-  setTimeout(()=>URL.revokeObjectURL(url),1000);
-}
-
-function exportEventCsv(eventId){
-  const e=S.events.find(x=>x.id===eventId);
-  if(!e)return toast('Evento não encontrado.');
-
-  const people=eventAssignedPeople(eventId);
-
-  const rows=[
-    ['Evento',e.nome],
-    ['Data',fmt(e.data)],
-    ['Hora início',e.hora_inicio?.slice(0,5)||''],
-    ['Hora fim',e.hora_fim?.slice(0,5)||''],
-    ['Total empenhados',people.length],
-    [],
-    ['Nº Corpo','Nome','Posto','Ano','Ramo','Curso']
-  ];
-
-  people.forEach(p=>{
-    rows.push([
-      p.numero_corpo||'',
-      p.nome||'',
-      p.posto||'',
-      p.ano||'',
-      p.ramo||'',
-      p.curso||''
-    ]);
+  $$('#constraintsTable .sort-head').forEach(btn=>{
+    btn.classList.toggle('active',btn.dataset.csort===constraintSort.key);
+    btn.querySelector('span').textContent=
+      btn.dataset.csort===constraintSort.key
+      ? (constraintSort.dir===1?'↑':'↓')
+      : '↕';
   });
 
-  const csv=rows.map(r=>r.map(csvEscape).join(';')).join('\r\n');
-  const filename=`${safeFileName(e.nome)}_${e.data}_empenhados.csv`;
-  downloadText(filename,csv,'text/csv;charset=utf-8');
-  toast(`CSV exportado: ${people.length} empenhado(s).`);
+  bindConstraintRowActions();
 }
-
-function exportEventPdf(eventId){
-  const e=S.events.find(x=>x.id===eventId);
-  if(!e)return toast('Evento não encontrado.');
-
-  const people=eventAssignedPeople(eventId);
-
-  const rows=people.length
-    ? people.map((p,i)=>`
-        <tr>
-          <td>${i+1}</td>
-          <td>${esc(p.numero_corpo||'—')}</td>
-          <td>${esc(p.nome)}</td>
-          <td>${esc(p.posto||'')}</td>
-          <td>${p.ano||''}</td>
-          <td>${esc(p.ramo||'')}</td>
-          <td>${esc(p.curso||'')}</td>
-        </tr>
-      `).join('')
-    : '<tr><td colspan="7">Sem pessoas empenhadas.</td></tr>';
-
-  const w=window.open('','_blank','width=1100,height=800');
-  if(!w)return toast('O browser bloqueou a janela de impressão.');
-
-  w.document.write(`<!doctype html>
-<html lang="pt-PT">
-<head>
-<meta charset="utf-8">
-<title>${esc(e.nome)} — Empenhados</title>
-<style>
-  body{font-family:Arial,sans-serif;color:#111;margin:32px}
-  h1{margin:0 0 6px;font-size:24px}
-  .meta{margin-bottom:22px;color:#444}
-  .meta span{margin-right:18px}
-  table{width:100%;border-collapse:collapse}
-  th,td{border:1px solid #bbb;padding:8px 9px;text-align:left;font-size:12px}
-  th{background:#f0f0f0}
-  .footer{margin-top:18px;font-size:11px;color:#666}
-  @media print{
-    body{margin:14mm}
-    .no-print{display:none}
-  }
-</style>
-</head>
-<body>
-  <button class="no-print" onclick="window.print()" style="float:right;padding:8px 12px">Imprimir / Guardar PDF</button>
-  <h1>${esc(e.nome)}</h1>
-  <div class="meta">
-    <span><b>Data:</b> ${fmt(e.data)}</span>
-    <span><b>Hora:</b> ${esc(e.hora_inicio?.slice(0,5)||'')}${e.hora_fim?'–'+esc(e.hora_fim.slice(0,5)):''}</span>
-    <span><b>Empenhados:</b> ${people.length}</span>
-  </div>
-
-  <table>
-    <thead>
-      <tr><th>#</th><th>Nº Corpo</th><th>Nome</th><th>Posto</th><th>Ano</th><th>Ramo</th><th>Curso</th></tr>
-    </thead>
-    <tbody>${rows}</tbody>
-  </table>
-
-  ${e.observacao?`<p><b>Observação:</b> ${esc(e.observacao)}</p>`:''}
-  <div class="footer">Gerado por A Minha Equipa</div>
-</body>
-</html>`);
-  w.document.close();
-  w.focus();
-}
-
-function renderHistory(){$('#historyBody').innerHTML=S.history.map(h=>`<tr><td>${new Date(h.alterado_em).toLocaleString('pt-PT')}</td><td>${esc(h.tabela)}</td><td>${esc(h.acao)}</td><td>${esc(h.registo_id||'')}</td></tr>`).join('')}
-function page(n){$$('.page').forEach(x=>x.classList.toggle('active',x.id===n));$$('nav button').forEach(x=>x.classList.toggle('active',x.dataset.page===n));$('#pageTitle').textContent=titles[n][0];$('#pageSubtitle').textContent=titles[n][1]}
-function modal(title,body,save){$('#modalTitle').textContent=title;$('#modalBody').innerHTML=body;$('#modalForm').onsubmit=async e=>{e.preventDefault();await save(new FormData(e.currentTarget))};$('#modal').showModal()}
-function closeModal(){$('#modal').close()}
-$('#modalClose').onclick=closeModal;$('#modalCancel').onclick=closeModal;
-$('#profileClose').onclick=()=>$('#profileModal').close();
-const peopleOpts=id=>S.people.map(p=>`<option value="${p.id}" ${p.id===id?'selected':''}>${esc(p.numero_corpo||'—')} · ${esc(p.nome)}</option>`).join('');
-const personLabel=p=>`${p.numero_corpo||'—'} · ${p.nome}`;
-const personFromSearch=value=>{
-  const v=String(value||'').trim().toLowerCase();
-  return S.people.find(p=>personLabel(p).toLowerCase()===v)
-      || S.people.find(p=>String(p.numero_corpo||'').toLowerCase()===v)
-      || S.people.find(p=>p.nome.toLowerCase()===v);
-};
-const personDatalist=()=>`<datalist id="peopleDatalist">${S.people.map(p=>`<option value="${esc(personLabel(p))}"></option>`).join('')}</datalist>`;
-
-const peopleChecks=ids=>`<div class="check-list">${S.people.map(p=>`<label class="check-row"><input name="persons" type="checkbox" value="${p.id}" ${ids.includes(p.id)?'checked':''}>${esc(p.numero_corpo||'—')} · ${esc(p.nome)}</label>`).join('')}</div>`;
-function openPerson(p=null){
-  modal(
-    p?'Editar pessoa':'Nova pessoa',
-    `<div class="grid2">
-      <label>Nº Corpo<input name="numero_corpo" value="${esc(p?.numero_corpo||'')}"></label>
-      <label>Posto<input name="posto" value="${esc(p?.posto||'')}"></label>
-      <label class="full">Nome<input name="nome" required value="${esc(p?.nome||'')}"></label>
-
-      <label>Ano<input name="ano" type="number" value="${p?.ano||''}"></label>
-
-      <label>Ramo
-        <select name="ramo">
-          <option ${p?.ramo==='EXE'?'selected':''}>EXE</option>
-          <option ${p?.ramo==='GNR'?'selected':''}>GNR</option>
-        </select>
-      </label>
-
-      <label>Curso<input name="curso" value="${esc(p?.curso||'')}"></label>
-
-      <label>Idade
-        <input name="idade" type="number" min="15" max="100" value="${p?.idade??''}">
-      </label>
-
-      <label>Sexo
-        <select name="sexo">
-          <option value="" ${!p?.sexo?'selected':''}>Por preencher</option>
-          <option value="F" ${p?.sexo==='F'?'selected':''}>Feminino</option>
-          <option value="M" ${p?.sexo==='M'?'selected':''}>Masculino</option>
-        </select>
-      </label>
-
-      <label class="full">Localidade
-        <input name="localidade" value="${esc(p?.localidade||'')}">
-      </label>
-    </div>`,
-    async f=>{
-      const x={
-        numero_corpo:f.get('numero_corpo')||null,
-        posto:f.get('posto')||null,
-        nome:f.get('nome'),
-        ano:f.get('ano')?Number(f.get('ano')):null,
-        ramo:f.get('ramo'),
-        curso:f.get('curso'),
-        idade:f.get('idade')?Number(f.get('idade')):null,
-        sexo:f.get('sexo')||null,
-        localidade:f.get('localidade')||null
-      };
-
-      const r=p
-        ? await supabase.from('pessoas').update(x).eq('id',p.id)
-        : await supabase.from('pessoas').insert(x);
-
-      if(r.error)return toast(r.error.message);
-      closeModal();
-      await load();
-    }
-  );
-}
-
-async function openProfile(personId){
-  const p=S.people.find(x=>x.id===personId);
-  if(!p)return;
-
-  const personConstraints=S.constraints
-    .filter(c=>c.pessoa_id===personId)
-    .sort((a,b)=>String(b.data_inicio).localeCompare(String(a.data_inicio)));
-
-  const personAssigned=S.assigned.filter(a=>a.pessoa_id===personId);
-  const eventIds=new Set(personAssigned.map(a=>a.evento_id));
-  const personEvents=S.events
-    .filter(e=>eventIds.has(e.id) && !eventIsCancelled(e))
-    .sort((a,b)=>(b.data+b.hora_inicio).localeCompare(a.data+a.hora_inicio));
-
-  const currentConstraints=personConstraints.filter(c=>{
-    const d=today();
-    return c.data_inicio<=d&&c.data_fim>=d;
-  });
-
-  const initials=p.nome
-    .split(/\s+/)
-    .filter(Boolean)
-    .slice(0,2)
-    .map(x=>x[0])
-    .join('')
-    .toUpperCase();
-
-  const sexLabel=p.sexo==='F'?'Feminino':p.sexo==='M'?'Masculino':'Por preencher';
-
-  $('#profileBody').innerHTML=`
-    <div class="profile-hero">
-      <div class="profile-avatar">${esc(initials)}</div>
-      <div>
-        <h2>${esc(p.nome)}</h2>
-        <p>${esc(p.posto||'')} · Nº ${esc(p.numero_corpo||'—')}</p>
-        <p>${esc(p.ramo)} · ${esc(p.curso)} · ${p.ano||'—'}º ano</p>
-      </div>
-      <button class="secondary" id="profileEditBtn">Editar ficha</button>
-    </div>
-
-    <div class="profile-stats">
-      <div class="profile-stat"><span>Eventos em que participou</span><strong>${personEvents.length}</strong></div>
-      <div class="profile-stat"><span>Constrangimentos</span><strong>${personConstraints.length}</strong></div>
-      <div class="profile-stat"><span>Idade</span><strong>${p.idade??'—'}</strong></div>
-      <div class="profile-stat"><span>Ativos agora</span><strong>${currentConstraints.length}</strong></div>
-    </div>
-
-    <div class="profile-grid">
-      <div class="profile-section">
-        <h4>Dados pessoais</h4>
-        <div class="profile-list">
-          <div class="profile-list-item"><span>Localidade</span><b>${esc(p.localidade||'Por preencher')}</b></div>
-          <div class="profile-list-item"><span>Sexo</span><b>${esc(sexLabel)}</b></div>
-          <div class="profile-list-item"><span>Curso</span><b>${esc(p.ramo)} · ${esc(p.curso)}</b></div>
-          <div class="profile-list-item"><span>Ano</span><b>${p.ano?`${p.ano}º`:'—'}</b></div>
-          <div class="profile-list-item"><span>Posto</span><b>${esc(p.posto||'—')}</b></div>
-        </div>
-      </div>
-
-      <div class="profile-section">
-        <h4>Constrangimentos recentes</h4>
-        ${
-          personConstraints.length
-          ? `<div class="profile-list">${personConstraints.slice(0,6).map(c=>`
-              <div class="profile-list-item">
-                <span>${esc(c.tipo)}${c.observacao?` · ${esc(c.observacao)}`:''}</span>
-                <b>${fmt(c.data_inicio)} → ${fmt(c.data_fim)}</b>
-              </div>
-            `).join('')}</div>`
-          : '<div class="profile-empty">Sem constrangimentos registados.</div>'
-        }
-      </div>
-
-      <div class="profile-section full">
-        <h4>Eventos em que foi empenhado</h4>
-        ${
-          personEvents.length
-          ? `<div class="profile-list">${personEvents.slice(0,10).map(e=>`
-              <div class="profile-list-item">
-                <span>${esc(e.nome)}</span>
-                <b>${fmt(e.data)} · ${esc(e.hora_inicio?.slice(0,5)||'')}</b>
-              </div>
-            `).join('')}</div>`
-          : '<div class="profile-empty">Ainda não participou em eventos registados.</div>'
-        }
-      </div>
-    </div>
-  `;
-
-  $('#profileEditBtn').onclick=()=>{
-    $('#profileModal').close();
-    openPerson(p);
-  };
-
-  $('#profileModal').showModal();
-}
-
 function openConstraint(c=null){
   const currentPerson=c?S.people.find(p=>p.id===c.pessoa_id):null;
   const currentState=c?.estado||'IMPEDITIVO';
@@ -943,6 +803,193 @@ function setupConstraintMultiPeople(){
   renderConstraintMultiPeople();
 }
 
+
+
+function scheduleBlocksForModel(modelId){
+  return S.schedules
+    .filter(h=>h.horario_modelo_id===modelId)
+    .sort((a,b)=>a.dia_semana-b.dia_semana||a.hora_inicio.localeCompare(b.hora_inicio));
+}
+
+function schedulePeopleForModel(modelId){
+  const ids=new Set(
+    S.scheduleModelPeople
+      .filter(x=>x.horario_modelo_id===modelId)
+      .map(x=>x.pessoa_id)
+  );
+  return S.people.filter(p=>ids.has(p.id));
+}
+
+function renderViewerWeekGrid(blocks){
+  const startMin=8*60;
+  const endMin=20*60;
+  const slot=30;
+  const slots=(endMin-startMin)/slot;
+  const days=['','Seg','Ter','Qua','Qui','Sex','Sáb','Dom'];
+
+  let html=`<div class="week-head" style="grid-column:1;grid-row:1"></div>`;
+
+  for(let d=1;d<=7;d++){
+    html+=`<div class="week-head" style="grid-column:${d+1};grid-row:1">${days[d]}</div>`;
+  }
+
+  for(let i=0;i<slots;i++){
+    const mins=startMin+i*slot;
+    const hh=String(Math.floor(mins/60)).padStart(2,'0');
+    const mm=String(mins%60).padStart(2,'0');
+
+    html+=`<div class="week-time" style="grid-column:1;grid-row:${i+2}">${hh}:${mm}</div>`;
+
+    for(let d=1;d<=7;d++){
+      html+=`<div class="week-cell" style="grid-column:${d+1};grid-row:${i+2}"></div>`;
+    }
+  }
+
+  blocks.forEach(b=>{
+    const s=minutesFromTime(b.hora_inicio);
+    const e=minutesFromTime(b.hora_fim);
+
+    if(s<startMin||e>endMin)return;
+
+    const rowStart=Math.floor((s-startMin)/slot)+2;
+    const span=Math.max(1,Math.ceil((e-s)/slot));
+
+    const cls=b.tipo_aula==='LABORATORIO'
+      ? 'laboratorio'
+      : b.tipo_aula==='PROBLEMAS'
+        ? 'problemas'
+        : b.tipo_aula==='TEORICO_PRATICA'
+          ? 'teorico-pratica'
+          : b.tipo_aula==='OUTRA'
+            ? 'outra'
+            : '';
+
+    html+=`<div class="week-block ${cls}"
+      style="grid-column:${Number(b.dia_semana)+1};grid-row:${rowStart}/span ${span}">
+      <b>${esc(b.disciplina||b.nome||'Aula')}</b>
+      <small>${esc(b.hora_inicio.slice(0,5))}–${esc(b.hora_fim.slice(0,5))}</small>
+    </div>`;
+  });
+
+  $('#scheduleViewerGrid').innerHTML=html;
+}
+
+function openScheduleViewer(title,subtitle,blocks,meta=[]){
+  $('#scheduleViewerTitle').textContent=title;
+  $('#scheduleViewerSub').textContent=subtitle||'';
+
+  $('#scheduleViewerMeta').innerHTML=meta.map(x=>`<span class="badge gray">${esc(x)}</span>`).join('');
+
+  $('#scheduleViewerBlocks').innerHTML=blocks.map(b=>`
+    <tr>
+      <td>${day(b.dia_semana)}</td>
+      <td>${b.hora_inicio.slice(0,5)}</td>
+      <td>${b.hora_fim.slice(0,5)}</td>
+      <td><b>${esc(b.disciplina||b.nome||'')}</b></td>
+      <td>${esc(b.tipo_aula)}</td>
+    </tr>
+  `).join('') || '<tr><td colspan="5">Sem blocos.</td></tr>';
+
+  renderViewerWeekGrid(blocks);
+  $('#scheduleViewer').showModal();
+}
+
+function openScheduleViewerByModel(modelId){
+  const m=S.scheduleModels.find(x=>x.id===modelId);
+  if(!m)return;
+
+  const blocks=scheduleBlocksForModel(modelId);
+  const people=schedulePeopleForModel(modelId);
+
+  openScheduleViewer(
+    m.nome,
+    `${fmt(m.data_inicio)} → ${fmt(m.data_fim)}`,
+    blocks,
+    [
+      `${blocks.length} bloco(s)`,
+      `${people.length} pessoa(s)`,
+      ...people.slice(0,5).map(p=>`${p.numero_corpo||'—'} · ${p.nome}`),
+      ...(people.length>5?[`+${people.length-5} pessoa(s)`]:[])
+    ]
+  );
+}
+
+function openPersonSchedulePicker(){
+  $('#personScheduleSearch').value='';
+  renderPersonSchedulePicker();
+  $('#personSchedulePicker').showModal();
+}
+
+function renderPersonSchedulePicker(){
+  const q=String($('#personScheduleSearch').value||'').trim().toLowerCase();
+
+  const rows=S.people.filter(p=>{
+    if(!q)return true;
+    return [
+      p.numero_corpo,p.nome,p.posto,p.ano,p.ramo,p.curso
+    ].some(v=>String(v||'').toLowerCase().includes(q));
+  });
+
+  $('#personScheduleList').innerHTML=rows.map(p=>{
+    const modelIds=S.scheduleModelPeople
+      .filter(x=>x.pessoa_id===p.id)
+      .map(x=>x.horario_modelo_id);
+
+    const legacyIds=S.schedulePeople
+      .filter(x=>x.pessoa_id===p.id)
+      .map(x=>x.horario_id);
+
+    const count=modelIds.length+legacyIds.length;
+
+    return `<div class="person-schedule-item">
+      <div>
+        <b>${esc(p.numero_corpo||'—')} · ${esc(p.nome)}</b>
+        <small>${esc(p.ramo)} · ${esc(p.curso)} · ${p.ano||'—'}º ano · ${count} horário(s)</small>
+      </div>
+      <button type="button" class="secondary view-person-schedule" data-id="${p.id}">Ver horário</button>
+    </div>`;
+  }).join('');
+
+  $$('.view-person-schedule').forEach(b=>b.onclick=()=>{
+    $('#personSchedulePicker').close();
+    openScheduleViewerByPerson(b.dataset.id);
+  });
+}
+
+function openScheduleViewerByPerson(personId){
+  const p=S.people.find(x=>x.id===personId);
+  if(!p)return;
+
+  const modelIds=S.scheduleModelPeople
+    .filter(x=>x.pessoa_id===personId)
+    .map(x=>x.horario_modelo_id);
+
+  const blocks=S.schedules
+    .filter(h=>{
+      if(h.horario_modelo_id && modelIds.includes(h.horario_modelo_id)) return true;
+
+      if(!h.horario_modelo_id){
+        return S.schedulePeople.some(
+          sp=>sp.pessoa_id===personId&&sp.horario_id===h.id
+        );
+      }
+
+      return false;
+    })
+    .sort((a,b)=>a.dia_semana-b.dia_semana||a.hora_inicio.localeCompare(b.hora_inicio));
+
+  const models=S.scheduleModels.filter(m=>modelIds.includes(m.id));
+
+  openScheduleViewer(
+    `Horário — ${p.nome}`,
+    `Nº ${p.numero_corpo||'—'} · ${p.ramo} · ${p.curso} · ${p.ano||'—'}º ano`,
+    blocks,
+    [
+      `${blocks.length} bloco(s)`,
+      ...models.map(m=>m.nome)
+    ]
+  );
+}
 
 let SW={
   model:null,
@@ -1400,9 +1447,139 @@ function renderWizardPeople(){
   const allowed=new Set(scopePeople().map(p=>p.id));
   const rows=W.availability.filter(r=>allowed.has(r.pessoa_id));
   $('#weCount').textContent=`${W.selected.size} empenhado(s)`;
-  $('#wePeople').innerHTML=rows.map(r=>`<label class="person-choice"><input class="assignCheck" type="checkbox" value="${r.pessoa_id}" ${W.selected.has(r.pessoa_id)?'checked':''}><span><b>${esc(r.numero_corpo||'—')} · ${esc(r.nome)}</b><small>${esc(r.curso)} · ${r.ano||''}º ${r.tem_alerta_aula?'· Aula: '+esc(r.detalhe_aula||''):''}</small></span>${badge(r.estado)}</label>`).join('');
+  $('#wePeople').innerHTML=rows.map(r=>{
+    const p=S.people.find(x=>x.id===r.pessoa_id);
+    const origin=p?.integra_equipa===false
+      ? `Externo${p?.funcao?` · ${esc(p.funcao)}`:''}`
+      : `${esc(r.curso||'')} · ${r.ano||''}º`;
+    const detail=[
+      origin,
+      r.motivo?`Motivo: ${esc(r.motivo)}`:'',
+      r.tem_alerta_aula?`Aula: ${esc(r.detalhe_aula||'')}`:''
+    ].filter(Boolean).join(' · ');
+
+    return `<label class="person-choice">
+      <input class="assignCheck" type="checkbox" value="${r.pessoa_id}" ${W.selected.has(r.pessoa_id)?'checked':''}>
+      <span>
+        <b>${esc(r.numero_corpo||'—')} · ${esc(r.nome)}</b>
+        <small>${detail}</small>
+      </span>
+      ${badge(r.estado)}
+    </label>`;
+  }).join('');
   $$('.assignCheck').forEach(c=>c.onchange=()=>{c.checked?W.selected.add(c.value):W.selected.delete(c.value);$('#weCount').textContent=`${W.selected.size} empenhado(s)`});
 }
+
+let participantTempSelection=new Set();
+
+function participantRows(){
+  const q=String($('#participantsSearch')?.value||'').trim().toLowerCase();
+  const state=$('#participantsStateFilter')?.value||'';
+  const group=$('#participantsGroupFilter')?.value||'';
+
+  return S.people.filter(p=>{
+    if(group==='equipa' && p.integra_equipa===false)return false;
+    if(group==='externos' && p.integra_equipa!==false)return false;
+
+    const a=W.availability.find(x=>x.pessoa_id===p.id);
+
+    if(state && a?.estado!==state)return false;
+
+    if(q){
+      const values=[
+        p.numero_corpo,p.nome,p.posto,p.funcao,p.ano,p.ramo,p.curso
+      ].map(v=>String(v||'').toLowerCase());
+
+      if(!values.some(v=>v.includes(q)))return false;
+    }
+
+    return true;
+  });
+}
+
+function renderParticipantsSummary(){
+  const selected=[...participantTempSelection];
+  const infos=selected
+    .map(id=>W.availability.find(a=>a.pessoa_id===id))
+    .filter(Boolean);
+
+  const unavailable=infos.filter(a=>a.estado==='INDISPONIVEL').length;
+  const pending=infos.filter(a=>a.estado==='POR_CONFIRMAR').length;
+  const externals=selected
+    .map(id=>S.people.find(p=>p.id===id))
+    .filter(p=>p?.integra_equipa===false).length;
+
+  $('#participantsSummary').textContent=
+    `${selected.length} selecionado(s) · ${externals} externo(s) · ${unavailable} indisponível(eis) · ${pending} por confirmar`;
+}
+
+function renderParticipantsDialog(){
+  const rows=participantRows();
+
+  $('#participantsBody').innerHTML=rows.map(p=>{
+    const a=W.availability.find(x=>x.pessoa_id===p.id);
+    const state=a?.estado||'—';
+
+    return `<tr>
+      <td>
+        <input type="checkbox" class="participant-check" value="${p.id}" ${participantTempSelection.has(p.id)?'checked':''}>
+      </td>
+      <td>${esc(p.numero_corpo||'—')}</td>
+      <td>
+        <b>${esc(p.nome)}</b>
+        <br><small>${esc(p.posto||'')}</small>
+      </td>
+      <td>
+        <div class="participant-origin">
+          <b>${p.integra_equipa===false?'Externo':'Equipa'}</b>
+          <small>${esc(p.funcao||'')}</small>
+        </div>
+      </td>
+      <td>${p.ano||'—'} · ${esc(p.curso||'—')}</td>
+      <td>${badge(state)}</td>
+      <td class="participant-reason">${esc(a?.motivo||'—')}</td>
+      <td class="participant-class">${a?.tem_alerta_aula?esc(a?.detalhe_aula||'Aula'):'—'}</td>
+    </tr>`;
+  }).join('');
+
+  $$('.participant-check').forEach(ch=>ch.onchange=()=>{
+    ch.checked
+      ? participantTempSelection.add(ch.value)
+      : participantTempSelection.delete(ch.value);
+
+    renderParticipantsSummary();
+  });
+
+  renderParticipantsSummary();
+}
+
+async function openParticipantsDialog(){
+  const d=$('#weDate').value;
+  const t=$('#weStart').value;
+
+  if(!d||!t)return toast('Indica primeiro a data e a hora de início.');
+
+  try{
+    W.availability=await checkAvailability(d,t,W.event?.id||null);
+    participantTempSelection=new Set(W.selected);
+
+    $('#participantsDialogTitle').textContent=
+      `Participantes — ${$('#weName').value||'Evento'}`;
+
+    $('#participantsDialogSub').textContent=
+      `${fmt(d)} · ${t}${$('#weEnd').value?'–'+$('#weEnd').value:''}`;
+
+    $('#participantsSearch').value='';
+    $('#participantsStateFilter').value='';
+    $('#participantsGroupFilter').value='';
+
+    renderParticipantsDialog();
+    $('#participantsDialog').showModal();
+  }catch(e){
+    toast(e.message);
+  }
+}
+
 async function openEventWizard(e=null){
   W={event:e,availability:[],selected:new Set(e?S.assigned.filter(a=>a.evento_id===e.id).map(a=>a.pessoa_id):[])};
   $('#wizardTitle').textContent=e?'Editar evento':'Novo evento';$('#weName').value=e?.nome||'';$('#weDate').value=e?.data||'';$('#weStart').value=e?.hora_inicio?.slice(0,5)||'';$('#weEnd').value=e?.hora_fim?.slice(0,5)||'';$('#weStatus').value=e?.estado_manual||'';$('#weNote').value=e?.observacao||'';$('#weScope').value='all';updateScope();$('#wePeople').innerHTML='<p class="muted">Carrega em “Ver disponibilidade”.</p>';$('#weCount').textContent=`${W.selected.size} empenhado(s)`;$('#eventWizard').showModal();
@@ -1418,7 +1595,34 @@ async function saveWizard(){
   if(W.selected.size){const r=await supabase.from('evento_empenhados').insert([...W.selected].map(pessoa_id=>({evento_id:id,pessoa_id})));if(r.error)return toast(r.error.message)}
   $('#eventWizard').close();toast('Evento guardado. Pessoas empenhadas ficaram indisponíveis nesse período.');await load();
 }
-$('#wizardClose').onclick=$('#wizardCancel').onclick=()=>$('#eventWizard').close();$('#wizardSave').onclick=saveWizard;$('#weCheck').onclick=wizardCheck;$('#weScope').onchange=()=>{updateScope();if(W.availability.length)renderWizardPeople()};$('#weScopeValue').onchange=()=>{if(W.availability.length)renderWizardPeople()};
+$('#wizardClose').onclick=$('#wizardCancel').onclick=()=>$('#eventWizard').close();$('#wizardSave').onclick=saveWizard;$('#weOpenParticipants').onclick=openParticipantsDialog;
+$('#participantsDialogClose').onclick=()=>$('#participantsDialog').close();
+$('#participantsCancel').onclick=()=>$('#participantsDialog').close();
+
+$('#participantsSearch').oninput=renderParticipantsDialog;
+$('#participantsStateFilter').onchange=renderParticipantsDialog;
+$('#participantsGroupFilter').onchange=renderParticipantsDialog;
+
+$('#participantsSelectAvailable').onclick=()=>{
+  participantRows().forEach(p=>{
+    const a=W.availability.find(x=>x.pessoa_id===p.id);
+    if(a?.estado==='DISPONIVEL')participantTempSelection.add(p.id);
+  });
+  renderParticipantsDialog();
+};
+
+$('#participantsClear').onclick=()=>{
+  participantTempSelection.clear();
+  renderParticipantsDialog();
+};
+
+$('#participantsApply').onclick=()=>{
+  W.selected=new Set(participantTempSelection);
+  $('#participantsDialog').close();
+  renderWizardPeople();
+};
+
+$('#weCheck').onclick=wizardCheck;$('#weScope').onchange=()=>{updateScope();if(W.availability.length)renderWizardPeople()};$('#weScopeValue').onchange=()=>{if(W.availability.length)renderWizardPeople()};
 
 $('#checkAvailBtn').onclick=renderAvailability;
 $('#availFilter').onchange=filterAvailability;
@@ -1446,7 +1650,48 @@ $('#resetAvailFiltersBtn').onclick=()=>{
   $$('#availTable [data-colfilter]').forEach(el=>el.value='');
   availSort={key:'nome',dir:1};
   filterAvailability();
-};$('#personSearch').oninput=renderPeople;$('#newEventBtn').onclick=()=>openEventWizard();$('#newPersonBtn').onclick=()=>openPerson();$('#newConstraintBtn').onclick=()=>openConstraint();$('#newScheduleBtn').onclick=()=>openScheduleWizard();$('#scheduleWizardClose').onclick=closeScheduleWizard;
+};$('#personSearch').oninput=renderPeople;$('#newEventBtn').onclick=()=>openEventWizard();$('#newExternalPersonBtn').onclick=()=>openPerson(null,true);$('#newPersonBtn').onclick=()=>openPerson();
+$$('#constraintsTable [data-cfilter]').forEach(el=>{
+  el.addEventListener('input',renderConstraints);
+  el.addEventListener('change',renderConstraints);
+});
+$$('#constraintsTable .sort-head').forEach(btn=>{
+  btn.addEventListener('click',()=>{
+    const key=btn.dataset.csort;
+    if(constraintSort.key===key) constraintSort.dir*=-1;
+    else {constraintSort.key=key;constraintSort.dir=1;}
+    renderConstraints();
+  });
+});
+$('#resetConstraintFilters').onclick=()=>{
+  $$('#constraintsTable [data-cfilter]').forEach(el=>el.value='');
+  constraintSort={key:'inicio',dir:-1};
+  renderConstraints();
+};
+
+$$('#peopleTable [data-pfilter]').forEach(el=>{
+  el.addEventListener('input',renderPeople);
+  el.addEventListener('change',renderPeople);
+});
+$$('#peopleTable .sort-head').forEach(btn=>{
+  btn.addEventListener('click',()=>{
+    const key=btn.dataset.psort;
+    if(peopleSort.key===key) peopleSort.dir*=-1;
+    else {peopleSort.key=key;peopleSort.dir=1;}
+    renderPeople();
+  });
+});
+$('#resetPeopleFilters').onclick=()=>{
+  $$('#peopleTable [data-pfilter]').forEach(el=>el.value='');
+  peopleSort={key:'nome',dir:1};
+  renderPeople();
+};
+
+$('#newConstraintBtn').onclick=()=>openConstraint();$('#viewPersonScheduleBtn').onclick=openPersonSchedulePicker;
+$('#scheduleViewerClose').onclick=()=>$('#scheduleViewer').close();
+$('#personSchedulePickerClose').onclick=()=>$('#personSchedulePicker').close();
+$('#personScheduleSearch').oninput=renderPersonSchedulePicker;
+$('#newScheduleBtn').onclick=()=>openScheduleWizard();$('#scheduleWizardClose').onclick=closeScheduleWizard;
 $('#scheduleWizardCancel').onclick=closeScheduleWizard;
 $('#scheduleWizardSave').onclick=saveScheduleWizard;
 $('#swPeopleSearch').oninput=renderSchedulePeople;

@@ -463,3 +463,145 @@ label small.muted{font-weight:400;margin-top:-2px;color:var(--muted)}
   font-size:12px;
   color:var(--muted);
 }
+
+/* V5.4 — visualização de horários */
+.schedule-top-actions{
+  display:flex;
+  gap:8px;
+  flex-wrap:wrap;
+}
+.schedule-model-actions{
+  display:flex;
+  gap:6px;
+  align-items:center;
+}
+.schedule-viewer-body{
+  padding:16px;
+  max-height:calc(100vh - 130px);
+  overflow:auto;
+}
+.schedule-viewer-meta{
+  display:flex;
+  gap:8px;
+  flex-wrap:wrap;
+  margin-bottom:12px;
+}
+.schedule-viewer-meta .badge{
+  font-size:12px;
+}
+.person-schedule-list{
+  display:grid;
+  gap:7px;
+  margin-top:10px;
+  max-height:520px;
+  overflow:auto;
+}
+.person-schedule-item{
+  display:flex;
+  justify-content:space-between;
+  align-items:center;
+  gap:12px;
+  border:1px solid var(--line);
+  border-radius:10px;
+  padding:10px;
+}
+.person-schedule-item b{display:block}
+.person-schedule-item small{
+  color:var(--muted);
+  display:block;
+  margin-top:2px;
+}
+.person-schedule-item button{
+  flex:0 0 auto;
+}
+
+/* V5.5 — filtros, ordenação e detalhes */
+.tiny-btn{padding:6px 8px;font-size:11px}
+.expand-row-btn{
+  border:1px solid var(--line);background:#fff;border-radius:8px;
+  padding:6px 8px;cursor:pointer;font-size:12px;font-weight:700
+}
+.constraint-detail-row td{background:#fafbfa;padding:0!important}
+.constraint-detail{
+  display:grid;grid-template-columns:repeat(4,minmax(0,1fr));
+  gap:10px;padding:12px 14px
+}
+.constraint-detail-item{
+  border:1px solid var(--line);border-radius:9px;padding:9px 10px;background:#fff
+}
+.constraint-detail-item span{
+  display:block;color:var(--muted);font-size:11px;margin-bottom:3px
+}
+.constraint-detail-item b{display:block;font-size:12px}
+.past-constraints{margin-top:14px;border-top:1px solid var(--line)}
+.past-constraints summary{
+  cursor:pointer;padding:14px 16px;display:flex;justify-content:space-between;
+  align-items:center;font-weight:800;background:#fafbfa
+}
+.past-constraints-inner{padding:0 0 10px;overflow:auto}
+@media(max-width:900px){.constraint-detail{grid-template-columns:1fr 1fr}}
+
+/* V5.6 — participantes detalhados e pessoas externas */
+.external-people-panel{
+  margin-top:16px;
+  border-top:1px solid var(--line);
+}
+.external-people-panel summary{
+  cursor:pointer;
+  display:flex;
+  justify-content:space-between;
+  align-items:center;
+  padding:14px 16px;
+  font-weight:800;
+  background:#fafbfa;
+}
+.external-people-inner{padding-bottom:12px}
+.compact-head{padding:12px 16px}
+.event-participant-actions{
+  display:flex;
+  gap:8px;
+  flex-wrap:wrap;
+  align-items:center;
+}
+.participants-dialog{
+  width:min(1500px,calc(100vw - 24px));
+  max-width:none;
+}
+.participants-toolbar{
+  display:grid;
+  grid-template-columns:minmax(240px,1fr) 180px 170px auto auto;
+  gap:8px;
+  padding:12px 16px;
+  border-bottom:1px solid var(--line);
+}
+.participants-summary{
+  padding:9px 16px;
+  color:var(--muted);
+  font-size:12px;
+  border-bottom:1px solid var(--line);
+}
+.participants-table-wrap{
+  max-height:68vh;
+  overflow:auto;
+}
+.participants-table{min-width:1150px}
+.participants-table thead th{
+  position:sticky;
+  top:0;
+  z-index:2;
+  background:#f7f9f7;
+}
+.participants-table td{vertical-align:top}
+.participant-origin{
+  display:flex;
+  flex-direction:column;
+  gap:3px;
+}
+.participant-origin small{color:var(--muted)}
+.participant-reason,.participant-class{
+  max-width:320px;
+  white-space:normal;
+}
+@media(max-width:1000px){
+  .participants-toolbar{grid-template-columns:1fr 1fr}
+}

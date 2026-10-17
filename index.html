@@ -149,20 +149,127 @@
       <div class="panel">
         <div class="panel-head"><div><h3>Equipa</h3><p>Clica numa pessoa para abrir a ficha individual.</p></div><button id="newPersonBtn" class="primary">+ Pessoa</button></div>
         <div class="toolbar"><input id="personSearch" placeholder="Pesquisar nome, nº, curso..."></div>
-        <div class="table-wrap"><table><thead><tr><th>Nº</th><th>Nome</th><th>Posto</th><th>Ano</th><th>Ramo</th><th>Curso</th><th>Idade</th><th>Localidade</th><th></th></tr></thead><tbody id="peopleBody"></tbody></table></div>
+        <div class="table-wrap"><table id="peopleTable">
+  <thead>
+    <tr>
+      <th><button class="sort-head" data-psort="numero_corpo">Nº <span>↕</span></button></th>
+      <th><button class="sort-head" data-psort="nome">Nome <span>↕</span></button></th>
+      <th><button class="sort-head" data-psort="posto">Posto <span>↕</span></button></th>
+      <th><button class="sort-head" data-psort="ano">Ano <span>↕</span></button></th>
+      <th><button class="sort-head" data-psort="ramo">Ramo <span>↕</span></button></th>
+      <th><button class="sort-head" data-psort="curso">Curso <span>↕</span></button></th>
+      <th><button class="sort-head" data-psort="idade">Idade <span>↕</span></button></th>
+      <th><button class="sort-head" data-psort="localidade">Localidade <span>↕</span></button></th>
+      <th></th>
+    </tr>
+    <tr class="column-filters">
+      <th><input data-pfilter="numero_corpo" placeholder="Filtrar"></th>
+      <th><input data-pfilter="nome" placeholder="Filtrar"></th>
+      <th><input data-pfilter="posto" placeholder="Filtrar"></th>
+      <th><input data-pfilter="ano" placeholder="Filtrar"></th>
+      <th>
+        <select data-pfilter="ramo">
+          <option value="">Todos</option>
+          <option value="EXE">EXE</option>
+          <option value="GNR">GNR</option>
+        </select>
+      </th>
+      <th><input data-pfilter="curso" placeholder="Filtrar"></th>
+      <th><input data-pfilter="idade" placeholder="Filtrar"></th>
+      <th><input data-pfilter="localidade" placeholder="Filtrar"></th>
+      <th><button id="resetPeopleFilters" type="button" class="secondary tiny-btn">Limpar</button></th>
+    </tr>
+  </thead>
+  <tbody id="peopleBody"></tbody>
+</table></div>
+
+<details class="external-people-panel">
+  <summary>
+    <span>Pessoas externas à equipa</span>
+    <span id="externalPeopleCount" class="badge gray">0</span>
+  </summary>
+  <div class="external-people-inner">
+    <div class="panel-head compact-head">
+      <div>
+        <h3>Pessoas externas</h3>
+        <p>Podem ter horários, constrangimentos e participar em eventos, mas não contam nas estatísticas da equipa.</p>
+      </div>
+      <button id="newExternalPersonBtn" class="primary">+ Pessoa externa</button>
+    </div>
+    <div class="table-wrap">
+      <table>
+        <thead>
+          <tr><th>Nº</th><th>Nome</th><th>Posto</th><th>Função</th><th>Ramo</th><th>Curso</th><th></th></tr>
+        </thead>
+        <tbody id="externalPeopleBody"></tbody>
+      </table>
+    </div>
+  </div>
+</details>
       </div>
     </section>
 
     <section id="constrangimentos" class="page">
       <div class="panel">
         <div class="panel-head"><div><h3>Constrangimentos</h3><p>Regista indisponibilidades, pedidos por confirmar e decisões.</p></div><button id="newConstraintBtn" class="primary">+ Constrangimento</button></div>
-        <div class="table-wrap"><table><thead><tr><th>Pessoa</th><th>Tipo</th><th>Estado</th><th>Início</th><th>Fim</th><th>Observação</th><th></th></tr></thead><tbody id="constraintsBody"></tbody></table></div>
+        <div class="table-wrap"><table id="constraintsTable">
+  <thead>
+    <tr>
+      <th><button class="sort-head" data-csort="pessoa">Pessoa <span>↕</span></button></th>
+      <th><button class="sort-head" data-csort="tipo">Tipo <span>↕</span></button></th>
+      <th><button class="sort-head" data-csort="estado">Estado <span>↕</span></button></th>
+      <th><button class="sort-head" data-csort="inicio">Início <span>↕</span></button></th>
+      <th><button class="sort-head" data-csort="fim">Fim <span>↕</span></button></th>
+      <th><button class="sort-head" data-csort="observacao">Observação <span>↕</span></button></th>
+      <th></th>
+    </tr>
+    <tr class="column-filters">
+      <th><input data-cfilter="pessoa" placeholder="Filtrar"></th>
+      <th><input data-cfilter="tipo" placeholder="Filtrar"></th>
+      <th>
+        <select data-cfilter="estado">
+          <option value="">Todos</option>
+          <option value="IMPEDITIVO">Impeditivo</option>
+          <option value="POR_CONFIRMAR">Por confirmar</option>
+          <option value="ACEITE">Aceite</option>
+          <option value="NAO_ACEITE">Não aceite</option>
+        </select>
+      </th>
+      <th><input data-cfilter="inicio" placeholder="Filtrar"></th>
+      <th><input data-cfilter="fim" placeholder="Filtrar"></th>
+      <th><input data-cfilter="observacao" placeholder="Filtrar"></th>
+      <th><button id="resetConstraintFilters" type="button" class="secondary tiny-btn">Limpar</button></th>
+    </tr>
+  </thead>
+  <tbody id="constraintsBody"></tbody>
+</table>
+
+<details class="past-constraints">
+  <summary>
+    <span>Constrangimentos passados</span>
+    <span id="pastConstraintsCount" class="badge gray">0</span>
+  </summary>
+  <div class="past-constraints-inner">
+    <table id="pastConstraintsTable">
+      <thead>
+        <tr><th>Pessoa</th><th>Tipo</th><th>Estado</th><th>Início</th><th>Fim</th><th>Observação</th><th></th></tr>
+      </thead>
+      <tbody id="pastConstraintsBody"></tbody>
+    </table>
+  </div>
+</details></div>
       </div>
     </section>
 
     <section id="horarios" class="page">
       <div class="panel">
-        <div class="panel-head"><div><h3>Horários</h3><p>Cria um horário semanal completo e atribui-o a várias pessoas de uma só vez.</p></div><button id="newScheduleBtn" class="primary">+ Horário completo</button></div>
+        <div class="panel-head">
+  <div><h3>Horários</h3><p>Cria, consulta e atribui horários semanais completos.</p></div>
+  <div class="schedule-top-actions">
+    <button id="viewPersonScheduleBtn" class="secondary">Ver horário de pessoa</button>
+    <button id="newScheduleBtn" class="primary">+ Horário completo</button>
+  </div>
+</div>
         <div id="scheduleList" class="cards"></div>
       </div>
     </section>
@@ -193,7 +300,7 @@
         <label>Data<input id="weDate" type="date"></label>
         <label>Hora início<input id="weStart" type="time"></label>
         <label>Hora fim<input id="weEnd" type="time"></label>
-        <label>Filtrar candidatos<select id="weScope"><option value="all">Toda a equipa</option><option value="course">Curso</option><option value="year">Ano</option></select></label>
+        <label>Filtrar candidatos<select id="weScope"><option value="all">Todos</option><option value="course">Curso</option><option value="year">Ano</option></select></label>
       </div>
       <div id="scopeValueBox" class="hidden"><label id="scopeValueLabel">Valor<select id="weScopeValue"></select></label></div>
       <label>Estado
@@ -206,7 +313,10 @@
         </select>
       </label>
       <label>Observação<textarea id="weNote"></textarea></label>
-      <button id="weCheck" type="button" class="secondary">Ver disponibilidade</button>
+      <div class="event-participant-actions">
+        <button id="weCheck" type="button" class="secondary">Ver disponibilidade</button>
+        <button id="weOpenParticipants" type="button" class="primary">Gerir participantes</button>
+      </div>
     </div>
     <div class="wizard-people">
       <div class="wizard-top"><b>Pessoas</b><span id="weCount"></span></div>
@@ -217,6 +327,98 @@
 </dialog>
 
 
+
+
+
+<dialog id="participantsDialog" class="participants-dialog">
+  <div class="modal-head">
+    <div>
+      <h3 id="participantsDialogTitle">Participantes do evento</h3>
+      <small id="participantsDialogSub" class="muted"></small>
+    </div>
+    <button id="participantsDialogClose" type="button" class="icon">×</button>
+  </div>
+
+  <div class="participants-toolbar">
+    <input id="participantsSearch" placeholder="Pesquisar nº, nome, função, curso...">
+    <select id="participantsStateFilter">
+      <option value="">Todos os estados</option>
+      <option value="DISPONIVEL">Disponíveis</option>
+      <option value="INDISPONIVEL">Indisponíveis</option>
+      <option value="POR_CONFIRMAR">Por confirmar</option>
+    </select>
+    <select id="participantsGroupFilter">
+      <option value="">Equipa + externos</option>
+      <option value="equipa">Só equipa</option>
+      <option value="externos">Só externos</option>
+    </select>
+    <button id="participantsSelectAvailable" type="button" class="secondary">Selecionar disponíveis</button>
+    <button id="participantsClear" type="button" class="secondary">Limpar seleção</button>
+  </div>
+
+  <div id="participantsSummary" class="participants-summary"></div>
+
+  <div class="participants-table-wrap">
+    <table class="participants-table">
+      <thead>
+        <tr>
+          <th></th>
+          <th>Nº</th>
+          <th>Nome</th>
+          <th>Origem / Função</th>
+          <th>Ano / Curso</th>
+          <th>Disponibilidade</th>
+          <th>Motivo</th>
+          <th>Aulas / Alertas</th>
+        </tr>
+      </thead>
+      <tbody id="participantsBody"></tbody>
+    </table>
+  </div>
+
+  <div class="modal-actions">
+    <button id="participantsCancel" type="button" class="secondary">Fechar</button>
+    <button id="participantsApply" type="button" class="primary">Aplicar seleção</button>
+  </div>
+</dialog>
+
+<dialog id="scheduleViewer" class="schedule-dialog">
+  <div class="modal-head">
+    <div>
+      <h3 id="scheduleViewerTitle">Ver horário</h3>
+      <small id="scheduleViewerSub" class="muted"></small>
+    </div>
+    <button id="scheduleViewerClose" type="button" class="icon">×</button>
+  </div>
+
+  <div class="schedule-viewer-body">
+    <div id="scheduleViewerMeta" class="schedule-viewer-meta"></div>
+    <div class="weekly-grid-wrap">
+      <div id="scheduleViewerGrid" class="weekly-grid"></div>
+    </div>
+    <div class="table-wrap">
+      <table>
+        <thead>
+          <tr><th>Dia</th><th>Início</th><th>Fim</th><th>Disciplina</th><th>Tipo</th></tr>
+        </thead>
+        <tbody id="scheduleViewerBlocks"></tbody>
+      </table>
+    </div>
+  </div>
+</dialog>
+
+<dialog id="personSchedulePicker" class="profile-dialog">
+  <div class="modal-head">
+    <h3>Ver horário de pessoa</h3>
+    <button id="personSchedulePickerClose" type="button" class="icon">×</button>
+  </div>
+  <div class="profile-body">
+    <label>Pesquisar pessoa
+      <input id="personScheduleSearch" placeholder="Nº corpo, nome, curso...">
+    </label>
+    <div id="personScheduleList" class="person-schedule-list"></div>
+  </div>
+</dialog>
 
 <dialog id="scheduleWizard" class="schedule-dialog">
   <div class="modal-head">

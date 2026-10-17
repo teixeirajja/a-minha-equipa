@@ -753,3 +753,46 @@ label small.muted{font-weight:400;margin-top:-2px;color:var(--muted)}
 .metric-counts.only-total{
   min-width:42px;
 }
+
+/* V5.16.1 — corrigir números à direita das barras */
+#courseStats .metric-row{
+  grid-template-columns:minmax(145px,1fr) minmax(180px,2fr) 112px;
+}
+
+#courseStats .metric-counts{
+  width:112px;
+  min-width:112px;
+  display:grid;
+  grid-template-columns:repeat(3,1fr);
+  align-items:center;
+  justify-items:end;
+  gap:5px;
+  overflow:visible;
+}
+
+#courseStats .metric-counts.only-total{
+  width:112px;
+  min-width:112px;
+  display:flex;
+  justify-content:flex-end;
+}
+
+#courseStats .metric-count-team,
+#courseStats .metric-count-function,
+#courseStats .metric-count-total{
+  min-width:20px;
+  text-align:right;
+  font-weight:800;
+}
+
+@media(max-width:760px){
+  #courseStats .metric-row{
+    grid-template-columns:110px minmax(120px,1fr) 96px;
+  }
+
+  #courseStats .metric-counts,
+  #courseStats .metric-counts.only-total{
+    width:96px;
+    min-width:96px;
+  }
+}

@@ -4,6 +4,7 @@ const supabase=createClient(
   'https://nfnxqiseohcnkgjbgata.supabase.co',
   'sb_publishable_LR4VwEg_DQLmMhS7C7MZUA_ZTKk4KVl'
 );
+const QG_PAGE=document.body.dataset.qgPage||'selector';
 const $=s=>document.querySelector(s), $$=s=>[...document.querySelectorAll(s)];
 let S={people:[],constraints:[],schedules:[],schedulePeople:[],scheduleModels:[],scheduleModelPeople:[],events:[],assigned:[],manualAvailability:[],eventCourseTargets:[],history:[],availability:[]};
 let constraintSorts=[{key:'inicio',dir:-1}];
@@ -161,7 +162,9 @@ function render(){renderHome();renderPeople();renderExternalPeople();renderConst
 
 function tmPeople(){
   return S.people.filter(
-    p=>p.ativo!==false && String(p.curso||'').trim().toUpperCase()==='TM'
+    p=>p.ativo!==false &&
+       String(p.curso||'').trim().toUpperCase()==='TM' &&
+       Number(p.ano)===6
   );
 }
 
@@ -192,8 +195,8 @@ function showClassModule(){
 }
 
 const classTitles={
-  classInicio:['Resumo da Turma','Visão geral de todos os elementos TM.'],
-  classPessoas:['Turma TM','Todos os TM, pertencentes ou não à equipa.']
+  classInicio:['Resumo da Turma','Turma TM · 6.º ano.'],
+  classPessoas:['Turma TM · 6.º ano','Todos os TM do 6.º ano, da equipa ou externos.']
 };
 
 function classPage(id){
@@ -212,8 +215,6 @@ function renderClassModule(){
   if(!$('#cTotal'))return;
 
   $('#cTotal').textContent=people.length;
-  $('#cYear5').textContent=people.filter(p=>Number(p.ano)===5).length;
-  $('#cYear6').textContent=people.filter(p=>Number(p.ano)===6).length;
   $('#cExternal').textContent=people.filter(p=>p.integra_equipa===false).length;
   $('#cExe').textContent=people.filter(p=>p.ramo==='EXE').length;
   $('#cGnr').textContent=people.filter(p=>p.ramo==='GNR').length;
@@ -221,12 +222,12 @@ function renderClassModule(){
   $('#cFunction').textContent=people.filter(p=>String(p.funcao||'').trim()).length;
 
   const buckets=[
-    {label:'EXE · 5.º',count:people.filter(p=>p.ramo==='EXE'&&Number(p.ano)===5).length},
-    {label:'EXE · 6.º',count:people.filter(p=>p.ramo==='EXE'&&Number(p.ano)===6).length},
-    {label:'GNR · 5.º',count:people.filter(p=>p.ramo==='GNR'&&Number(p.ano)===5).length},
-    {label:'GNR · 6.º',count:people.filter(p=>p.ramo==='GNR'&&Number(p.ano)===6).length}
+    {label:'EXE · TM · 6.º',count:people.filter(p=>p.ramo==='EXE').length},
+    {label:'GNR · TM · 6.º',count:people.filter(p=>p.ramo==='GNR').length}
   ];
+
   const max=Math.max(1,...buckets.map(x=>x.count));
+
   $('#classDistribution').innerHTML=buckets.map(x=>`
     <div class="metric-row">
       <div class="metric-label">${esc(x.label)}</div>
@@ -3208,10 +3209,10 @@ $('#refreshBtn').onclick=load;$$('#appView nav button').forEach(b=>b.onclick=()=
 $('#availDate').value=today();
 
 
-$('#openTeamModule').onclick=showTeamModule;
-$('#openClassModule').onclick=showClassModule;
-$('#backToModulesBtn').onclick=showModuleSelector;
-$('#classBackToModulesBtn').onclick=showModuleSelector;
+$('#openTeamModule').onclick=()=>{window.location.href='equipa.html'};
+$('#openClassModule').onclick=()=>{window.location.href='turma.html'};
+$('#backToModulesBtn').onclick=()=>{window.location.href='index.html'};
+$('#classBackToModulesBtn').onclick=()=>{window.location.href='index.html'};
 $('#moduleLogoutBtn').onclick=()=>supabase.auth.signOut();
 $('#classLogoutBtn').onclick=()=>supabase.auth.signOut();
 $('#classRefreshBtn').onclick=async()=>{await load();renderClassModule()};
@@ -3229,13 +3230,20 @@ $$('.class-sort-head').forEach(btn=>btn.onclick=()=>{
 $('#loginForm').onsubmit=async e=>{e.preventDefault();const r=await supabase.auth.signInWithPassword({email:$('#loginEmail').value,password:$('#loginPassword').value});$('#loginError').textContent=r.error?.message||''};
 $('#logoutBtn').onclick=()=>supabase.auth.signOut();
 supabase.auth.onAuthStateChange(async(_e,s)=>{
-  $('#loginView').classList.toggle('hidden',!!s);
   if(!s){
+    if(QG_PAGE!=='selector'){
+      window.location.replace('index.html');
+      return;
+    }
+
+    $('#loginView').classList.remove('hidden');
     $('#moduleView').classList.add('hidden');
     $('#appView').classList.add('hidden');
     $('#classView').classList.add('hidden');
     return;
   }
+
+  $('#loginView').classList.add('hidden');
 
   const email=s.user.email||'';
   $('#sessionEmail').textContent=email;
@@ -3244,6 +3252,15 @@ supabase.auth.onAuthStateChange(async(_e,s)=>{
 
   try{
     await load();
-    showModuleSelector();
-  }catch(e){toast(e.message)}
+
+    if(QG_PAGE==='team'){
+      showTeamModule();
+    }else if(QG_PAGE==='class'){
+      showClassModule();
+    }else{
+      showModuleSelector();
+    }
+  }catch(e){
+    toast(e.message);
+  }
 });

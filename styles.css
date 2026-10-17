@@ -1016,3 +1016,8 @@ body{
   .module-topbar{align-items:flex-start;flex-direction:column}
   .module-user{width:100%;justify-content:space-between}
 }
+
+/* V6.1 — páginas reais separadas.
+   index.html = seleção de módulos
+   equipa.html = A Minha Equipa
+   turma.html = A Minha Turma */

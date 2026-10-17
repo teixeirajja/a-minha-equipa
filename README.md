@@ -765,3 +765,28 @@ A Minha Turma tem, nesta primeira versão:
 
 Os dois módulos usam o mesmo login e os mesmos registos de pessoas no Supabase.
 Não requer SQL novo.
+
+
+## V6.1 — Páginas separadas
+
+A navegação passa a usar páginas HTML reais:
+
+- `index.html` — Login + escolha de módulo
+- `equipa.html` — A Minha Equipa
+- `turma.html` — A Minha Turma
+
+Isto faz com que o botão `Voltar` do browser funcione naturalmente:
+`Equipa/Turma → voltar → escolha de módulos`.
+
+A sessão Supabase é a mesma nas três páginas, por isso não é necessário iniciar sessão novamente ao trocar de módulo.
+
+### A Minha Turma
+
+A turma passa a incluir exclusivamente pessoas que cumpram simultaneamente:
+
+- Curso = `TM`
+- Ano = `6`
+
+Inclui tanto pessoas da equipa como pessoas externas.
+
+Não requer SQL novo.

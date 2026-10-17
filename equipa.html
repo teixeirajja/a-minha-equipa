@@ -1,0 +1,835 @@
+<!doctype html>
+<html lang="pt-PT">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width,initial-scale=1">
+  <title>QGApp — A Minha Equipa</title>
+  <link rel="icon" type="image/png" href="favicon.png">
+  <link rel="stylesheet" href="styles.css">
+</head>
+<body data-qg-page="team">
+<div id="toast" class="toast hidden"></div>
+
+<section id="loginView" class="login-shell">
+  <form id="loginForm" class="login-card">
+    <div class="logo login-app-logo"><img src="app-logo.png" alt="QGApp"></div>
+    <h1>QGApp</h1>
+    <p><b>Comando e Gestão de Operações</b><br><span class="muted">Acesso aos módulos de gestão.</span></p>
+    <label>Email<input id="loginEmail" type="email" required autocomplete="email"></label>
+    <label>Password<input id="loginPassword" type="password" required autocomplete="current-password"></label>
+    <button class="primary">Entrar</button>
+    <div id="loginError" class="error"></div>
+  </form>
+</section>
+
+
+<section id="moduleView" class="module-shell hidden">
+  <div class="module-topbar">
+    <div class="module-qg-brand">
+      <img src="app-logo.png" alt="QGApp">
+      <div><h1>QGApp</h1><p>Comando e Gestão de Operações</p></div>
+    </div>
+    <div class="module-user"><span id="moduleEmail"></span><button id="moduleLogoutBtn" class="secondary">Terminar sessão</button></div>
+  </div>
+
+  <div class="module-picker">
+    <div class="module-picker-head">
+      <h2>Escolher módulo</h2>
+      <p>Seleciona a área em que queres trabalhar.</p>
+    </div>
+
+    <div class="module-cards">
+      <button id="openTeamModule" class="module-card team-module-card" type="button">
+        <div class="module-card-logo"><img src="app-logo.png" alt="A Minha Equipa"></div>
+        <div class="module-card-text">
+          <h3>A Minha Equipa</h3>
+          <p>Disponibilidade, eventos, constrangimentos e horários.</p>
+          <span><strong id="moduleTeamCount">—</strong> elementos da equipa</span>
+        </div>
+      </button>
+
+      <button id="openClassModule" class="module-card class-module-card" type="button">
+        <div class="module-card-logo class-card-logo">TM</div>
+        <div class="module-card-text">
+          <h3>A Minha Turma</h3>
+          <p>Área dedicada à turma TM do 6.º ano.</p>
+          <span><strong id="moduleClassCount">—</strong> elementos TM · 6.º ano</span>
+        </div>
+      </button>
+    </div>
+  </div>
+</section>
+
+<div id="appView" class="app hidden">
+  <aside>
+    <div class="brand"><div class="logo small app-logo"><img src="app-logo.png" alt="A Minha Equipa"></div><div><b>A Minha Equipa</b><small>Gestão interna</small></div></div>
+    <nav>
+      <button data-page="inicio" class="active">Resumo</button>
+      <button data-page="consulta">Consultar disponibilidade</button>
+      <button data-page="eventos">Eventos</button>
+      <button data-page="pessoas">Equipa</button>
+      <button data-page="constrangimentos">Constrangimentos</button>
+      <button data-page="horarios">Horários</button>
+      <button data-page="historico">Histórico</button>
+    </nav>
+    <div class="aside-bottom">
+      <button id="backToModulesBtn" class="module-back-btn">← QGApp / Módulos</button>
+      <span id="sessionEmail"></span>
+      <button id="logoutBtn" class="text-btn">Terminar sessão</button>
+    </div>
+  </aside>
+
+  <main>
+    <header>
+      <div><h2 id="pageTitle">Resumo</h2><p id="pageSubtitle">Visão geral da equipa.</p></div>
+      <button id="refreshBtn" class="secondary">Atualizar</button>
+    </header>
+
+    <section id="inicio" class="page active">
+      <div class="stats">
+        <article><span>Pessoas</span><strong id="sPeople">—</strong></article>
+        <article><span>5.º ano</span><strong id="sYear5">—</strong></article>
+        <article><span>6.º ano</span><strong id="sYear6">—</strong></article>
+        <article><span>Eventos futuros</span><strong id="sEvents">—</strong></article>
+      </div>
+
+      <div class="dashboard-grid">
+        <div class="panel">
+          <div class="panel-head">
+            <div><h3>Pessoas por curso</h3><p>Verde: equipa · Vermelho: pessoal externo/com função.</p></div>
+          </div>
+          <div id="courseStats" class="metric-list"></div>
+        </div>
+
+        <div class="panel">
+          <div class="panel-head">
+            <div><h3>Distribuição</h3><p>Indicadores rápidos da equipa.</p></div>
+          </div>
+          <div class="mini-stats">
+            <article><span>Engenheiros · 5.º</span><strong id="sEng5">—</strong></article>
+            <article><span>Engenheiros · 6.º</span><strong id="sEng6">—</strong></article>
+            <article><span>MED · 5.º</span><strong id="sMed5">—</strong></article>
+            <article><span>Raparigas</span><strong id="sFemale">—</strong></article>
+            <article><span>Rapazes</span><strong id="sMale">—</strong></article>
+            
+          </div>
+        </div>
+      </div>
+
+      <div class="panel dashboard-events">
+        <div class="panel-head">
+          <div><h3>Próximos eventos</h3><p>Consulta rápida dos próximos compromissos.</p></div>
+        </div>
+        <div class="table-wrap">
+          <table>
+            <thead><tr><th>Data</th><th>Hora</th><th>Evento</th><th>Empenhados</th></tr></thead>
+            <tbody id="homeEvents"></tbody>
+          </table>
+        </div>
+      </div>
+    </section>
+
+    <section id="consulta" class="page">
+      <div class="panel">
+        <div class="panel-head"><div><h3>Disponibilidade por data</h3><p>Escolhe um dia. A hora é opcional.</p></div></div>
+        <div class="filters">
+          <label>Data<input id="availDate" type="date"></label>
+          <label>Hora opcional<input id="availTime" type="time"></label>
+          <label>Estado<select id="availFilter"><option value="all">Todos</option><option value="DISPONIVEL">Disponíveis</option><option value="INDISPONIVEL">Indisponíveis</option><option value="POR_CONFIRMAR">Por confirmar</option><option value="alerta">Com alerta de aula</option></select></label>
+          <button id="checkAvailBtn" class="primary">Consultar</button><button id="resetAvailFiltersBtn" type="button" class="secondary">Limpar filtros</button>
+        </div>
+        <div id="availSummary" class="summary"></div>
+        <div class="table-wrap">
+          <table id="availTable">
+  <thead>
+    <tr>
+      <th><button class="sort-head" data-sort="numero_corpo">Nº <span>↕</span></button></th>
+      <th><button class="sort-head" data-sort="nome">Nome <span>↕</span></button></th>
+      <th><button class="sort-head" data-sort="ano">Ano <span>↕</span></button></th>
+      <th><button class="sort-head" data-sort="curso">Curso <span>↕</span></button></th>
+      <th><button class="sort-head" data-sort="estado">Estado <span>↕</span></button></th>
+      <th><button class="sort-head" data-sort="motivo">Motivo <span>↕</span></button></th>
+      <th><button class="sort-head" data-sort="detalhe_aula">Aulas <span>↕</span></button></th>
+    </tr>
+    <tr class="column-filters">
+      <th><input data-colfilter="numero_corpo" placeholder="Filtrar"></th>
+      <th><input data-colfilter="nome" placeholder="Filtrar"></th>
+      <th><input data-colfilter="ano" placeholder="Filtrar"></th>
+      <th>
+        <input data-colfilter="curso" list="courseFilterOptions" placeholder="Filtrar">
+        <datalist id="courseFilterOptions">
+          <option value="Engenheiros">
+          <option value="TM">
+          <option value="MAT">
+          <option value="SMAT">
+          <option value="ENG">
+          <option value="MED">
+          <option value="SME">
+        </datalist>
+      </th>
+      <th>
+        <select data-colfilter="estado">
+          <option value="">Todos</option>
+          <option value="DISPONIVEL">Disponível</option>
+          <option value="INDISPONIVEL">Indisponível</option><option value="POR_CONFIRMAR">Por confirmar</option>
+        </select>
+      </th>
+      <th><input data-colfilter="motivo" placeholder="Filtrar"></th>
+      <th>
+        <select data-colfilter="alerta">
+          <option value="">Todos</option>
+          <option value="sim">Com aula</option>
+          <option value="nao">Sem aula</option>
+        </select>
+      </th>
+    </tr>
+  </thead>
+  <tbody id="availBody"></tbody>
+</table>
+        </div>
+      </div>
+    </section>
+
+    <section id="eventos" class="page">
+      <div class="panel">
+        <div class="panel-head"><div><h3>Eventos</h3><p>Cria eventos, empenha pessoal e exporta a lista de participantes.</p></div><button id="newEventBtn" class="primary">+ Novo evento</button></div>
+        <div class="table-wrap">
+          <table id="eventsTable"><thead><tr>
+<th><button class="sort-head event-sort-head" data-esort="data">Data <span>↕</span></button></th>
+<th><button class="sort-head event-sort-head" data-esort="hora">Hora <span>↕</span></button></th>
+<th><button class="sort-head event-sort-head" data-esort="nome">Evento <span>↕</span></button></th>
+<th><button class="sort-head event-sort-head" data-esort="estado">Estado <span>↕</span></button></th>
+<th><button class="sort-head event-sort-head" data-esort="empenhados">Empenhados <span>↕</span></button></th>
+<th></th></tr></thead><tbody id="eventsBody"></tbody></table>
+        </div>
+      </div>
+    </section>
+
+    <section id="pessoas" class="page">
+      <div class="panel">
+        <div class="panel-head"><div><h3>Equipa</h3><p>Clica numa pessoa para abrir a ficha individual.</p></div><button id="newPersonBtn" class="primary">+ Pessoa</button></div>
+        <div class="toolbar"><input id="personSearch" placeholder="Pesquisar nome, nº, curso..."></div>
+        <div class="people-filter-toolbar">
+  <label>Grupo rápido
+    <select id="peopleGroupPreset">
+      <option value="">Todos</option>
+      <option value="ENGENHEIROS">Engenheiros (TM + MAT + ENG)</option>
+      <option value="MED">Medicina (MED)</option>
+      <option value="TM">TM</option>
+      <option value="ENG">ENG</option>
+      <option value="SMAT">SMAT</option>
+      <option value="SME">SME</option>
+    </select>
+  </label>
+  <small>Podes ainda escrever vários cursos separados por <b>;</b> ou <b>,</b> no filtro Curso.</small>
+</div>
+<div class="table-wrap"><table id="peopleTable">
+  <thead>
+    <tr>
+      <th><button class="sort-head" data-psort="numero_corpo">Nº <span>↕</span></button></th>
+      <th><button class="sort-head" data-psort="nome">Nome <span>↕</span></button></th>
+      <th><button class="sort-head" data-psort="posto">Posto <span>↕</span></button></th>
+      <th><button class="sort-head" data-psort="ano">Ano <span>↕</span></button></th>
+      <th><button class="sort-head" data-psort="ramo">Ramo <span>↕</span></button></th>
+      <th><button class="sort-head" data-psort="curso">Curso <span>↕</span></button></th>
+      <th><button class="sort-head" data-psort="idade">Idade <span>↕</span></button></th>
+      <th><button class="sort-head" data-psort="localidade">Localidade <span>↕</span></button></th>
+      <th></th>
+    </tr>
+    <tr class="column-filters">
+      <th><input data-pfilter="numero_corpo" placeholder="Filtrar"></th>
+      <th><input data-pfilter="nome" placeholder="Filtrar"></th>
+      <th><input data-pfilter="posto" placeholder="Filtrar"></th>
+      <th><input data-pfilter="ano" placeholder="Filtrar"></th>
+      <th>
+        <select data-pfilter="ramo">
+          <option value="">Todos</option>
+          <option value="EXE">EXE</option>
+          <option value="GNR">GNR</option>
+        </select>
+      </th>
+      <th>
+        <input data-pfilter="curso" list="peopleCourseFilterOptions" placeholder="Filtrar">
+        <datalist id="peopleCourseFilterOptions">
+          <option value="Engenheiros">
+          <option value="TM">
+          <option value="MAT">
+          <option value="SMAT">
+          <option value="ENG">
+          <option value="MED">
+          <option value="SME">
+        </datalist>
+      </th>
+      <th><input data-pfilter="idade" placeholder="Filtrar"></th>
+      <th><input data-pfilter="localidade" placeholder="Filtrar"></th>
+      <th><button id="resetPeopleFilters" type="button" class="secondary tiny-btn">Limpar</button></th>
+    </tr>
+  </thead>
+  <tbody id="peopleBody"></tbody>
+</table></div>
+
+<details class="external-people-panel">
+  <summary>
+    <span>Pessoas externas à equipa</span>
+    <span id="externalPeopleCount" class="badge gray">0</span>
+  </summary>
+  <div class="external-people-inner">
+    <div class="panel-head compact-head">
+      <div>
+        <h3>Pessoas externas</h3>
+        <p>Podem ter horários, constrangimentos e participar em eventos, mas não contam nas estatísticas da equipa.</p>
+      </div>
+      <button id="newExternalPersonBtn" class="primary">+ Pessoa externa</button>
+    </div>
+    <div class="table-wrap">
+      <table>
+        <thead>
+          <tr>
+<th><button class="sort-head external-sort-head" data-xsort="numero_corpo">Nº <span>↕</span></button></th>
+<th><button class="sort-head external-sort-head" data-xsort="nome">Nome <span>↕</span></button></th>
+<th><button class="sort-head external-sort-head" data-xsort="posto">Posto <span>↕</span></button></th>
+<th><button class="sort-head external-sort-head" data-xsort="funcao">Função <span>↕</span></button></th>
+<th><button class="sort-head external-sort-head" data-xsort="ramo">Ramo <span>↕</span></button></th>
+<th><button class="sort-head external-sort-head" data-xsort="curso">Curso <span>↕</span></button></th>
+<th></th></tr>
+        </thead>
+        <tbody id="externalPeopleBody"></tbody>
+      </table>
+    </div>
+  </div>
+</details>
+      </div>
+    </section>
+
+    <section id="constrangimentos" class="page">
+      <div class="panel">
+        <div class="panel-head"><div><h3>Constrangimentos</h3><p>Regista indisponibilidades, pedidos por confirmar e decisões.</p></div><button id="newConstraintBtn" class="primary">+ Constrangimento</button></div>
+        <div class="table-wrap"><table id="constraintsTable">
+  <thead>
+    <tr>
+      <th><button class="sort-head" data-csort="pessoa">Pessoa <span>↕</span></button></th>
+      <th><button class="sort-head" data-csort="tipo">Tipo <span>↕</span></button></th>
+      <th><button class="sort-head" data-csort="estado">Estado <span>↕</span></button></th>
+      <th><button class="sort-head" data-csort="inicio">Início <span>↕</span></button></th>
+      <th><button class="sort-head" data-csort="fim">Fim <span>↕</span></button></th>
+      <th><button class="sort-head" data-csort="observacao">Observação <span>↕</span></button></th>
+      <th></th>
+    </tr>
+    <tr class="column-filters">
+      <th><input data-cfilter="pessoa" placeholder="Filtrar"></th>
+      <th><input data-cfilter="tipo" placeholder="Filtrar"></th>
+      <th>
+        <select data-cfilter="estado">
+          <option value="">Todos</option>
+          <option value="IMPEDITIVO">Impeditivo</option>
+          <option value="POR_CONFIRMAR">Por confirmar</option>
+          <option value="ACEITE">Aceite</option>
+          <option value="NAO_ACEITE">Não aceite</option>
+        </select>
+      </th>
+      <th><input data-cfilter="inicio" placeholder="Filtrar"></th>
+      <th><input data-cfilter="fim" placeholder="Filtrar"></th>
+      <th><input data-cfilter="observacao" placeholder="Filtrar"></th>
+      <th><button id="resetConstraintFilters" type="button" class="secondary tiny-btn">Limpar</button></th>
+    </tr>
+  </thead>
+  <tbody id="constraintsBody"></tbody>
+</table>
+
+<details class="past-constraints">
+  <summary>
+    <span>Constrangimentos passados</span>
+    <span id="pastConstraintsCount" class="badge gray">0</span>
+  </summary>
+  <div class="past-constraints-inner">
+    <table id="pastConstraintsTable">
+      <thead>
+        <tr>
+<th><button class="sort-head past-constraint-sort-head" data-csort="pessoa">Pessoa <span>↕</span></button></th>
+<th><button class="sort-head past-constraint-sort-head" data-csort="tipo">Tipo <span>↕</span></button></th>
+<th><button class="sort-head past-constraint-sort-head" data-csort="estado">Estado <span>↕</span></button></th>
+<th><button class="sort-head past-constraint-sort-head" data-csort="inicio">Início <span>↕</span></button></th>
+<th><button class="sort-head past-constraint-sort-head" data-csort="fim">Fim <span>↕</span></button></th>
+<th><button class="sort-head past-constraint-sort-head" data-csort="observacao">Observação <span>↕</span></button></th>
+<th></th></tr>
+      </thead>
+      <tbody id="pastConstraintsBody"></tbody>
+    </table>
+  </div>
+</details></div>
+      </div>
+    </section>
+
+    <section id="horarios" class="page">
+      <div class="panel">
+        <div class="panel-head">
+  <div><h3>Horários</h3><p>Cria, consulta e atribui horários semanais completos.</p></div>
+  <div class="schedule-top-actions">
+    <button id="viewPersonScheduleBtn" class="secondary">Ver horário de pessoa</button>
+    <button id="newScheduleBtn" class="primary">+ Horário completo</button>
+  </div>
+</div>
+        <div id="scheduleList" class="cards"></div>
+      </div>
+    </section>
+
+    <section id="historico" class="page">
+      <div class="panel">
+        <div class="panel-head"><div><h3>Histórico</h3><p>Últimas alterações.</p></div></div>
+        <div class="table-wrap"><table id="historyTable"><thead><tr>
+<th><button class="sort-head history-sort-head" data-hsort="data">Data <span>↕</span></button></th>
+<th><button class="sort-head history-sort-head" data-hsort="tabela">Tabela <span>↕</span></button></th>
+<th><button class="sort-head history-sort-head" data-hsort="acao">Ação <span>↕</span></button></th>
+<th><button class="sort-head history-sort-head" data-hsort="registo">Registo <span>↕</span></button></th>
+</tr></thead><tbody id="historyBody"></tbody></table></div>
+      </div>
+    </section>
+  </main>
+</div>
+
+
+<div id="classView" class="app class-app hidden">
+  <aside class="class-aside">
+    <div class="brand">
+      <div class="logo small class-side-logo">TM</div>
+      <div><b>A Minha Turma</b><small>TM · 6.º ano</small></div>
+    </div>
+    <nav class="class-nav">
+      <button data-class-page="classInicio" class="active">Resumo</button>
+      <button data-class-page="classPessoas">Turma</button>
+    </nav>
+    <div class="aside-bottom">
+      <button id="classBackToModulesBtn" class="module-back-btn">← QGApp / Módulos</button>
+      <span id="classSessionEmail"></span>
+      <button id="classLogoutBtn" class="text-btn">Terminar sessão</button>
+    </div>
+  </aside>
+
+  <main>
+    <header>
+      <div><h2 id="classPageTitle">Resumo da Turma</h2><p id="classPageSubtitle">Turma TM · 6.º ano.</p></div>
+      <button id="classRefreshBtn" class="secondary">Atualizar</button>
+    </header>
+
+    <section id="classInicio" class="class-page active">
+      <div class="stats class-stats">
+        <article><span>TM · 6.º ano</span><strong id="cTotal">—</strong></article>
+        <article><span>Na equipa</span><strong id="cTeam">—</strong></article>
+        <article><span>Externos</span><strong id="cExternal">—</strong></article>
+        <article><span>Com função</span><strong id="cFunction">—</strong></article>
+      </div>
+
+      <div class="dashboard-grid">
+        <div class="panel">
+          <div class="panel-head"><div><h3>Distribuição da turma</h3><p>Todos os TM do 6.º ano, pertencentes ou não à equipa.</p></div></div>
+          <div id="classDistribution" class="metric-list"></div>
+        </div>
+        <div class="panel">
+          <div class="panel-head"><div><h3>Ramo</h3><p>Distribuição EXE / GNR.</p></div></div>
+          <div class="mini-stats">
+            <article><span>EXE · TM</span><strong id="cExe">—</strong></article>
+            <article><span>GNR · TM</span><strong id="cGnr">—</strong></article>
+          </div>
+        </div>
+      </div>
+    </section>
+
+    <section id="classPessoas" class="class-page">
+      <div class="panel">
+        <div class="panel-head"><div><h3>Turma TM · 6.º ano</h3><p>Inclui todos os TM do 6.º ano, da equipa ou externos.</p></div></div>
+        <div class="toolbar"><input id="classSearch" placeholder="Pesquisar nº, nome, NIM, posto, função..."></div>
+        <div class="table-wrap">
+          <table id="classPeopleTable">
+            <thead>
+              <tr>
+                <th><button class="sort-head class-sort-head" data-tsort="numero_corpo">Nº <span>↕</span></button></th>
+                <th><button class="sort-head class-sort-head" data-tsort="nome">Nome <span>↕</span></button></th>
+                <th><button class="sort-head class-sort-head" data-tsort="posto">Posto <span>↕</span></button></th>
+                <th><button class="sort-head class-sort-head" data-tsort="ano">Ano <span>↕</span></button></th>
+                <th><button class="sort-head class-sort-head" data-tsort="ramo">Ramo <span>↕</span></button></th>
+                <th><button class="sort-head class-sort-head" data-tsort="nim">NIM <span>↕</span></button></th>
+                <th><button class="sort-head class-sort-head" data-tsort="origem">Origem <span>↕</span></button></th>
+                <th><button class="sort-head class-sort-head" data-tsort="funcao">Função <span>↕</span></button></th>
+              </tr>
+              <tr class="column-filters">
+                <th><input data-tfilter="numero_corpo" placeholder="Filtrar"></th>
+                <th><input data-tfilter="nome" placeholder="Filtrar"></th>
+                <th><input data-tfilter="posto" placeholder="Filtrar"></th>
+                <th><select data-tfilter="ano"><option value="">6.º ano</option></select></th>
+                <th><select data-tfilter="ramo"><option value="">Todos</option><option value="EXE">EXE</option><option value="GNR">GNR</option></select></th>
+                <th><input data-tfilter="nim" placeholder="Filtrar"></th>
+                <th><select data-tfilter="origem"><option value="">Todos</option><option value="equipa">Equipa</option><option value="externo">Externo</option></select></th>
+                <th><input data-tfilter="funcao" placeholder="Filtrar"></th>
+              </tr>
+            </thead>
+            <tbody id="classPeopleBody"></tbody>
+          </table>
+        </div>
+      </div>
+    </section>
+  </main>
+</div>
+
+<dialog id="modal">
+  <form id="modalForm">
+    <div class="modal-head"><h3 id="modalTitle"></h3><button id="modalClose" type="button" class="icon">×</button></div>
+    <div id="modalBody" class="modal-body"></div>
+    <div class="modal-actions"><button id="modalCancel" type="button" class="secondary">Cancelar</button><button class="primary">Guardar</button></div>
+  </form>
+</dialog>
+
+<dialog id="eventWizard">
+  <div class="modal-head"><h3 id="wizardTitle">Novo evento</h3><button id="wizardClose" class="icon">×</button></div>
+  <div class="wizard">
+    <div class="wizard-fields">
+      <label>Nome<input id="weName"></label>
+      <div class="grid2">
+        <label>Data<input id="weDate" type="date"></label>
+        <label>Hora início<input id="weStart" type="time"></label>
+        <label>Hora fim<input id="weEnd" type="time"></label>
+        <label>Destinatários
+          <select id="weScope">
+            <option value="all">Toda a equipa</option>
+            <option value="course">Curso(s) específico(s)</option>
+            <option value="year">Ano específico</option>
+          </select>
+        </label>
+      </div>
+
+      <div id="scopeValueBox" class="hidden">
+        <div id="courseTargetBox" class="hidden">
+          <label>Cursos do evento</label>
+          <div id="courseTargetList" class="course-target-list"></div>
+          <small class="muted">Podes selecionar um ou vários cursos. EXE · TM e GNR · TM são tratados separadamente.</small>
+        </div>
+
+        <div id="yearTargetBox" class="hidden">
+          <label>Ano
+            <select id="weScopeValue"></select>
+          </label>
+        </div>
+      </div>
+      <label>Estado
+        <select id="weStatus">
+          <option value="">Automático</option>
+          <option value="AGENDADO">Agendado</option>
+          <option value="EM_CURSO">Em curso</option>
+          <option value="FINALIZADO">Finalizado</option>
+          <option value="CANCELADO">Cancelado</option>
+        </select>
+      </label>
+      <label>Observação<textarea id="weNote"></textarea></label>
+      <div class="event-participant-actions">
+        <button id="weCheck" type="button" class="secondary">Ver disponibilidade</button>
+        <button id="weOpenParticipants" type="button" class="primary">Gerir participantes</button>
+      </div>
+    </div>
+    <div class="wizard-people">
+      <div class="wizard-top"><b>Pessoas</b><span id="weCount"></span></div>
+      <div id="wePeople" class="people-pick"><p class="muted">Define data e hora e carrega em “Ver disponibilidade”.</p></div>
+    </div>
+  </div>
+  <div class="modal-actions"><button id="wizardCancel" class="secondary">Cancelar</button><button id="wizardSave" class="primary">Guardar evento e empenhar</button></div>
+</dialog>
+
+
+
+
+
+<dialog id="pdfSortDialog" class="profile-dialog">
+  <div class="modal-head">
+    <div>
+      <h3>Ordenar mapa de empenhamentos</h3>
+      <small class="muted">Escolhe até 3 critérios. O 2.º desempata o 1.º e o 3.º desempata o 2.º.</small>
+    </div>
+    <button id="pdfSortClose" type="button" class="icon">×</button>
+  </div>
+  <div class="profile-body">
+    <div class="grid2">
+      <label>1.º critério
+        <select id="pdfSort1">
+          <option value="numero_corpo">Nº Corpo</option><option value="ano">Ano</option><option value="posto">Posto</option><option value="nome">Nome</option><option value="nim">NIM</option><option value="ramo">Ramo</option><option value="curso">Curso</option>
+        </select>
+      </label>
+      <label>Ordem
+        <select id="pdfSort1Dir"><option value="asc">Ascendente</option><option value="desc">Descendente</option></select>
+      </label>
+
+      <label>2.º critério
+        <select id="pdfSort2">
+          <option value="">Nenhum</option><option value="numero_corpo">Nº Corpo</option><option value="ano">Ano</option><option value="posto">Posto</option><option value="nome">Nome</option><option value="nim">NIM</option><option value="ramo">Ramo</option><option value="curso">Curso</option>
+        </select>
+      </label>
+      <label>Ordem
+        <select id="pdfSort2Dir"><option value="asc">Ascendente</option><option value="desc">Descendente</option></select>
+      </label>
+
+      <label>3.º critério
+        <select id="pdfSort3">
+          <option value="">Nenhum</option><option value="numero_corpo">Nº Corpo</option><option value="ano">Ano</option><option value="posto">Posto</option><option value="nome">Nome</option><option value="nim">NIM</option><option value="ramo">Ramo</option><option value="curso">Curso</option>
+        </select>
+      </label>
+      <label>Ordem
+        <select id="pdfSort3Dir"><option value="asc">Ascendente</option><option value="desc">Descendente</option></select>
+      </label>
+    </div>
+  </div>
+  <div class="modal-actions">
+    <button id="pdfSortCancel" type="button" class="secondary">Cancelar</button>
+    <button id="pdfSortGenerate" type="button" class="primary">Gerar PDF</button>
+  </div>
+</dialog>
+
+<dialog id="participantsDialog" class="participants-dialog">
+  <div class="modal-head">
+    <div>
+      <h3 id="participantsDialogTitle">Participantes do evento</h3>
+      <small id="participantsDialogSub" class="muted"></small>
+    </div>
+    <button id="participantsDialogClose" type="button" class="icon">×</button>
+  </div>
+
+  <div class="participants-toolbar">
+    <input id="participantsSearch" placeholder="Pesquisar nº, nome, função, curso...">
+
+    <select id="participantsStateFilter">
+      <option value="">Todos os estados</option>
+      <option value="DISPONIVEL">Disponíveis</option>
+      <option value="INDISPONIVEL">Indisponíveis</option>
+      <option value="POR_CONFIRMAR">Por confirmar</option>
+    </select>
+
+    <select id="participantsYearFilter">
+      <option value="">Todos os anos</option>
+    </select>
+
+    <select id="participantsCourseFilter">
+      <option value="">Todos os cursos</option>
+    </select>
+
+    <select id="participantsGroupFilter">
+      <option value="">Equipa + externos</option>
+      <option value="equipa">Só equipa</option>
+      <option value="externos">Só externos</option>
+    </select>
+
+    <select id="participantsSort">
+      <option value="numero_asc">Nº corpo ↑</option>
+      <option value="numero_desc">Nº corpo ↓</option>
+      <option value="nome_asc">Nome A–Z</option>
+      <option value="nome_desc">Nome Z–A</option>
+      <option value="ano_asc">Ano ↑</option>
+      <option value="ano_desc">Ano ↓</option>
+      <option value="curso_asc">Curso A–Z</option>
+      <option value="disponibilidade">Disponibilidade</option>
+    </select>
+
+    <button id="participantsSelectAvailable" type="button" class="secondary">Selecionar disponíveis</button>
+    <button id="participantsClear" type="button" class="secondary">Limpar seleção</button>
+  </div>
+
+  <div id="participantsSummary" class="participants-summary"></div>
+
+  <div class="participants-table-wrap">
+    <table class="participants-table">
+      <thead>
+        <tr>
+          <th></th>
+          <th><button type="button" class="participant-sort-head" data-sort="numero">Nº <span>↕</span></button></th>
+          <th><button type="button" class="participant-sort-head" data-sort="nome">Nome <span>↕</span></button></th>
+          <th>Origem / Função</th>
+          <th><button type="button" class="participant-sort-head" data-sort="ano">Ano / Curso <span>↕</span></button></th>
+          <th><button type="button" class="participant-sort-head" data-sort="disponibilidade">Disponibilidade <span>↕</span></button></th>
+          <th>Decisão manual</th>
+          <th>Motivo</th>
+          <th>Aulas / Alertas</th>
+        </tr>
+      </thead>
+      <tbody id="participantsBody"></tbody>
+    </table>
+  </div>
+
+  <div class="modal-actions">
+    <button id="participantsCancel" type="button" class="secondary">Fechar</button>
+    <button id="participantsApply" type="button" class="primary">Aplicar seleção</button>
+  </div>
+</dialog>
+
+<dialog id="scheduleViewer" class="schedule-dialog">
+  <div class="modal-head">
+    <div>
+      <h3 id="scheduleViewerTitle">Ver horário</h3>
+      <small id="scheduleViewerSub" class="muted"></small>
+    </div>
+    <button id="scheduleViewerClose" type="button" class="icon">×</button>
+  </div>
+
+  <div class="schedule-viewer-body">
+    <div id="scheduleViewerMeta" class="schedule-viewer-meta"></div>
+    <div class="weekly-grid-wrap">
+      <div id="scheduleViewerGrid" class="weekly-grid"></div>
+    </div>
+    <div class="table-wrap">
+      <table>
+        <thead>
+          <tr>
+<th><button class="sort-head schedule-block-sort-head" data-ssort="dia">Dia <span>↕</span></button></th>
+<th><button class="sort-head schedule-block-sort-head" data-ssort="inicio">Início <span>↕</span></button></th>
+<th><button class="sort-head schedule-block-sort-head" data-ssort="fim">Fim <span>↕</span></button></th>
+<th><button class="sort-head schedule-block-sort-head" data-ssort="disciplina">Disciplina <span>↕</span></button></th>
+<th><button class="sort-head schedule-block-sort-head" data-ssort="tipo">Tipo <span>↕</span></button></th>
+</tr>
+        </thead>
+        <tbody id="scheduleViewerBlocks"></tbody>
+      </table>
+    </div>
+  </div>
+</dialog>
+
+<dialog id="personSchedulePicker" class="profile-dialog">
+  <div class="modal-head">
+    <h3>Ver horário de pessoa</h3>
+    <button id="personSchedulePickerClose" type="button" class="icon">×</button>
+  </div>
+  <div class="profile-body">
+    <label>Pesquisar pessoa
+      <input id="personScheduleSearch" placeholder="Nº corpo, nome, curso...">
+    </label>
+    <div id="personScheduleList" class="person-schedule-list"></div>
+  </div>
+</dialog>
+
+<dialog id="scheduleWizard" class="schedule-dialog">
+  <div class="modal-head">
+    <div>
+      <h3 id="scheduleWizardTitle">Novo horário</h3>
+      <small class="muted">Cria todos os blocos do horário antes de guardar.</small>
+    </div>
+    <button id="scheduleWizardClose" type="button" class="icon">×</button>
+  </div>
+
+  <div class="schedule-wizard-body">
+    <div class="schedule-meta">
+      <div class="grid2">
+        <label class="full">Nome do horário
+          <input id="swName" placeholder="Ex.: 5.º Ano Engenharia Militar — Turma A">
+        </label>
+        <label>Válido desde
+          <input id="swStartDate" type="date">
+        </label>
+        <label>Válido até
+          <input id="swEndDate" type="date">
+        </label>
+        <label class="full">Observação
+          <input id="swNote" placeholder="Opcional">
+        </label>
+      </div>
+    </div>
+
+    <div class="schedule-layout">
+      <section class="schedule-main">
+        <div class="subpanel">
+          <div class="subpanel-head">
+            <div>
+              <b>Blocos do horário</b>
+              <small>Adiciona todas as aulas aqui e guarda apenas no fim.</small>
+            </div>
+            <span id="swBlockCount" class="badge gray">0 blocos</span>
+          </div>
+
+          <div class="block-editor">
+            <label>Dia
+              <select id="swDay">
+                <option value="1">Segunda</option>
+                <option value="2">Terça</option>
+                <option value="3">Quarta</option>
+                <option value="4">Quinta</option>
+                <option value="5">Sexta</option>
+                <option value="6">Sábado</option>
+                <option value="7">Domingo</option>
+              </select>
+            </label>
+            <label>Início<input id="swBlockStart" type="time" step="1800"></label>
+            <label>Fim<input id="swBlockEnd" type="time" step="1800"></label>
+            <label>Disciplina<input id="swSubject" placeholder="Ex.: EG"></label>
+            <label>Tipo
+              <select id="swType">
+                <option value="TEORICA">Teórica</option>
+                <option value="TEORICO_PRATICA">Teórico-prática</option>
+                <option value="PROBLEMAS">Problemas</option>
+                <option value="LABORATORIO">Laboratório</option>
+                <option value="OUTRA">Outra</option>
+              </select>
+            </label>
+            <button id="swAddBlock" type="button" class="primary">Adicionar</button>
+          </div>
+
+          <details class="bulk-import">
+            <summary>Importar vários blocos de uma vez</summary>
+            <p class="muted">
+              Cola linhas com: <b>Dia Início Fim Disciplina Tipo</b>.
+              Aceita espaços, TAB do Excel ou ponto e vírgula.
+              Tipos: T, TP, P ou L.
+            </p>
+            <textarea id="swBulk" placeholder="Terça 13:00 14:30 EG T&#10;Quarta 15:30 17:00 OGC TP&#10;Sexta 10:30 12:00 VC L"></textarea>
+            <button id="swBulkAdd" type="button" class="secondary">Adicionar linhas</button>
+          </details>
+
+          <div class="table-wrap schedule-block-table">
+            <table>
+              <thead>
+                <tr><th>Dia</th><th>Início</th><th>Fim</th><th>Disciplina</th><th>Tipo</th><th></th></tr>
+              </thead>
+              <tbody id="swBlocksBody"></tbody>
+            </table>
+          </div>
+        </div>
+
+        <div class="subpanel">
+          <div class="subpanel-head">
+            <div>
+              <b>Pré-visualização semanal</b>
+              <small>Assim consegues confirmar o horário como numa grelha.</small>
+            </div>
+          </div>
+          <div class="weekly-grid-wrap">
+            <div id="swWeekGrid" class="weekly-grid"></div>
+          </div>
+        </div>
+      </section>
+
+      <aside class="schedule-people-panel">
+        <div class="schedule-people-head">
+          <b>Atribuir a pessoas</b>
+          <span id="swPeopleCount">0 selecionadas</span>
+        </div>
+
+        <input id="swPeopleSearch" placeholder="Pesquisar nº, nome, curso...">
+
+        <div class="schedule-people-actions">
+          <button id="swSelectVisible" type="button" class="secondary">Selecionar visíveis</button>
+          <button id="swClearPeople" type="button" class="secondary">Limpar</button>
+        </div>
+
+        <div id="swPeople" class="schedule-people-list"></div>
+      </aside>
+    </div>
+  </div>
+
+  <div class="modal-actions">
+    <button id="scheduleWizardCancel" type="button" class="secondary">Cancelar</button>
+    <button id="scheduleWizardSave" type="button" class="primary">Guardar horário completo</button>
+  </div>
+</dialog>
+
+<dialog id="profileModal" class="profile-dialog">
+  <div class="modal-head">
+    <h3>Ficha individual</h3>
+    <button id="profileClose" type="button" class="icon">×</button>
+  </div>
+  <div id="profileBody" class="profile-body"></div>
+</dialog>
+
+<script type="module" src="app.js"></script>
+</body>
+</html>

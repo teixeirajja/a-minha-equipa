@@ -225,6 +225,10 @@ async function renderModuleCounts(){
 
   if($('#moduleTeamUpcomingEvents')){
     $('#moduleTeamUpcomingEvents').textContent=upcomingEvents.length;
+    const label=$('#moduleTeamUpcomingEventsLabel');
+    if(label){
+      label.textContent=`evento${upcomingEvents.length===1?'':'s'} · 7 dias`;
+    }
   }
 
   // EQUIPA — disponibilidade de amanhã pela mesma RPC usada pelo módulo.

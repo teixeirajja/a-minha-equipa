@@ -1052,3 +1052,12 @@ O ecrã de escolha de módulos continua simples, mas cada cartão passa a mostra
 - hora a que os dados foram carregados.
 
 Não requer SQL novo.
+
+
+## V6.11.1 — Correções de texto na Index
+
+- singular/plural automático em `evento / eventos`;
+- próxima avaliação passa a aparecer como `Próx.: DD/MM · Cadeira`;
+- versão do rodapé atualizada para `v6.11.1`.
+
+Não requer SQL novo.

@@ -718,44 +718,137 @@ function generateEventPdfWithSort(eventId,criteria){
 
 function renderHome(){
   const d=today();
-  const active=S.people.filter(p=>p.ativo!==false && p.integra_equipa!==false);
+
+  // Os cartões principais continuam a contar apenas a equipa.
+  const active=S.people.filter(
+    p=>p.ativo!==false && p.integra_equipa!==false
+  );
+
+  // Pessoas externas/com função entram apenas no gráfico por curso.
+  const externalWithFunction=S.people.filter(
+    p=>p.ativo!==false &&
+       p.integra_equipa===false &&
+       Boolean(String(p.funcao||'').trim())
+  );
 
   $('#sPeople').textContent=active.length;
   $('#sYear5').textContent=active.filter(p=>Number(p.ano)===5).length;
   $('#sYear6').textContent=active.filter(p=>Number(p.ano)===6).length;
-  $('#sEvents').textContent=S.events.filter(e=>e.data>=d&&!eventIsCancelled(e)).length;
 
-  const engineeringCourses=new Set(['TM','ENG','SMAT']);
+  // "Eventos futuros" = apenas os próximos 7 dias, incluindo hoje.
+  const weekEnd=new Date(`${d}T00:00:00`);
+  weekEnd.setDate(weekEnd.getDate()+7);
+  const weekEndIso=[
+    weekEnd.getFullYear(),
+    String(weekEnd.getMonth()+1).padStart(2,'0'),
+    String(weekEnd.getDate()).padStart(2,'0')
+  ].join('-');
+
+  const nextWeekEvents=S.events.filter(
+    e=>e.data>=d &&
+       e.data<=weekEndIso &&
+       !eventIsCancelled(e)
+  );
+
+  $('#sEvents').textContent=nextWeekEvents.length;
+
+  const engineeringCourses=new Set(['TM','MAT','SMAT','ENG']);
+
   $('#sEng5').textContent=active.filter(
     p=>engineeringCourses.has(String(p.curso||'').toUpperCase())&&Number(p.ano)===5
   ).length;
+
   $('#sEng6').textContent=active.filter(
     p=>engineeringCourses.has(String(p.curso||'').toUpperCase())&&Number(p.ano)===6
   ).length;
+
   $('#sMed5').textContent=active.filter(
     p=>String(p.curso||'').toUpperCase()==='MED'&&Number(p.ano)===5
   ).length;
+
   $('#sFemale').textContent=active.filter(p=>p.sexo==='F').length;
   $('#sMale').textContent=active.filter(p=>p.sexo==='M').length;
-  $('#sSexUnknown').textContent=active.filter(p=>!p.sexo).length;
 
+  // Agrupar por ramo + curso.
+  // Mantém as barras que já existiam para a equipa e acrescenta,
+  // em vermelho, pessoas externas com função.
   const grouped=new Map();
+
+  const ensureGroup=p=>{
+    const ramo=String(p.ramo||'').trim();
+    const curso=String(p.curso||'').trim();
+
+    if(!ramo || !curso) return null;
+
+    const key=`${ramo} · ${curso}`;
+
+    if(!grouped.has(key)){
+      grouped.set(key,{
+        label:key,
+        team:0,
+        functional:0
+      });
+    }
+
+    return grouped.get(key);
+  };
+
   active.forEach(p=>{
-    const key=`${p.ramo} · ${p.curso}`;
-    grouped.set(key,(grouped.get(key)||0)+1);
+    const g=ensureGroup(p);
+    if(g)g.team++;
   });
-  const groups=[...grouped.entries()].sort((a,b)=>b[1]-a[1]||a[0].localeCompare(b[0],'pt'));
-  const max=Math.max(1,...groups.map(x=>x[1]));
 
-  $('#courseStats').innerHTML=groups.map(([label,count])=>`
-    <div class="metric-row">
-      <div class="metric-label">${esc(label)}</div>
-      <div class="metric-bar"><span style="width:${Math.round(count/max*100)}%"></span></div>
-      <div class="metric-value">${count}</div>
-    </div>
-  `).join('') || '<div class="summary">Sem dados.</div>';
+  externalWithFunction.forEach(p=>{
+    const g=ensureGroup(p);
+    if(g)g.functional++;
+  });
 
-  const future=S.events.filter(e=>e.data>=d&&!eventIsCancelled(e)).slice(0,8);
+  const groups=[...grouped.values()]
+    .map(g=>({...g,total:g.team+g.functional}))
+    .sort((a,b)=>
+      b.total-a.total ||
+      b.team-a.team ||
+      a.label.localeCompare(b.label,'pt')
+    );
+
+  const max=Math.max(1,...groups.map(g=>g.total));
+
+  $('#courseStats').innerHTML=groups.map(g=>{
+    const teamWidth=(g.team/max)*100;
+    const functionWidth=(g.functional/max)*100;
+
+    const counts=g.functional>0
+      ? `<div class="metric-counts">
+          <span class="metric-count-team" title="Equipa">${g.team}</span>
+          <span class="metric-count-function" title="Pessoal externo/com função">${g.functional}</span>
+          <span class="metric-count-total" title="Total">${g.total}</span>
+        </div>`
+      : `<div class="metric-counts only-total">
+          <span class="metric-count-total" title="Total">${g.total}</span>
+        </div>`;
+
+    return `
+      <div class="metric-row">
+        <div class="metric-label">${esc(g.label)}</div>
+
+        <div class="metric-bar stacked"
+             title="Equipa: ${g.team} · Pessoal com função: ${g.functional} · Total: ${g.total}">
+          <span class="metric-team" style="width:${teamWidth}%"></span>
+          <span class="metric-function" style="width:${functionWidth}%"></span>
+        </div>
+
+        ${counts}
+      </div>
+    `;
+  }).join('') || '<div class="summary">Sem dados.</div>';
+
+  const future=[...nextWeekEvents]
+    .sort((a,b)=>
+      String(a.data+a.hora_inicio).localeCompare(
+        String(b.data+b.hora_inicio)
+      )
+    );
+
   $('#homeEvents').innerHTML=future.map(e=>`
     <tr>
       <td>${fmt(e.data)}</td>
@@ -763,8 +856,9 @@ function renderHome(){
       <td>${esc(e.nome)}</td>
       <td>${S.assigned.filter(a=>a.evento_id===e.id).length}</td>
     </tr>
-  `).join('');
+  `).join('') || '<tr><td colspan="4" class="muted">Sem eventos nos próximos 7 dias.</td></tr>';
 }
+
 function badge(st){
   const cls=st==='DISPONIVEL'?'green':st==='POR_CONFIRMAR'?'amber':'red';
   const label=st==='POR_CONFIRMAR'?'POR CONFIRMAR':st;

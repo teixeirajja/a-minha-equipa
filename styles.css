@@ -721,3 +721,35 @@ label small.muted{font-weight:400;margin-top:-2px;color:var(--muted)}
   min-width:18px;
   font-weight:800;
 }
+
+/* V5.16 — Resumo: equipa + pessoal externo/com função */
+.metric-bar.stacked{
+  display:flex;
+  overflow:hidden;
+  padding:0;
+}
+.metric-bar.stacked .metric-team{
+  display:block;
+  height:100%;
+  background:#317542;
+}
+.metric-bar.stacked .metric-function{
+  display:block;
+  height:100%;
+  background:#c84a45;
+}
+.metric-counts{
+  min-width:94px;
+  display:flex;
+  align-items:center;
+  justify-content:flex-end;
+  gap:7px;
+  font-weight:800;
+  white-space:nowrap;
+}
+.metric-count-team{color:#317542}
+.metric-count-function{color:#c84a45}
+.metric-count-total{color:var(--text)}
+.metric-counts.only-total{
+  min-width:42px;
+}

@@ -437,7 +437,7 @@
     <section id="classPessoas" class="class-page">
       <div class="panel">
         <div class="panel-head"><div><h3>Turma TM · 6.º ano</h3><p>Inclui todos os TM do 6.º ano, da equipa ou externos.</p></div></div>
-        <div class="toolbar"><input id="classSearch" placeholder="Pesquisar nº, nome, NIM, posto, função..."></div>
+        <div class="toolbar"><input id="classSearch" placeholder="Pesquisar nº, nome, NIM, posto..."></div>
         <div class="table-wrap">
           <table id="classPeopleTable">
             <thead>
@@ -448,8 +448,6 @@
                 <th><button class="sort-head class-sort-head" data-tsort="ano">Ano <span>↕</span></button></th>
                 <th><button class="sort-head class-sort-head" data-tsort="ramo">Ramo <span>↕</span></button></th>
                 <th><button class="sort-head class-sort-head" data-tsort="nim">NIM <span>↕</span></button></th>
-                <th><button class="sort-head class-sort-head" data-tsort="origem">Origem <span>↕</span></button></th>
-                <th><button class="sort-head class-sort-head" data-tsort="funcao">Função <span>↕</span></button></th>
               </tr>
               <tr class="column-filters">
                 <th><input data-tfilter="numero_corpo" placeholder="Filtrar"></th>
@@ -458,8 +456,6 @@
                 <th><select data-tfilter="ano"><option value="">6.º ano</option></select></th>
                 <th><select data-tfilter="ramo"><option value="">Todos</option><option value="EXE">EXE</option><option value="GNR">GNR</option></select></th>
                 <th><input data-tfilter="nim" placeholder="Filtrar"></th>
-                <th><select data-tfilter="origem"><option value="">Todos</option><option value="equipa">Equipa</option><option value="externo">Externo</option></select></th>
-                <th><input data-tfilter="funcao" placeholder="Filtrar"></th>
               </tr>
             </thead>
             <tbody id="classPeopleBody"></tbody>

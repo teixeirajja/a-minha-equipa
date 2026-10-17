@@ -1021,3 +1021,11 @@ body{
    index.html = seleção de módulos
    equipa.html = A Minha Equipa
    turma.html = A Minha Turma */
+
+/* V6.2 — fichas individuais na Turma */
+.class-person-row{
+  cursor:pointer;
+}
+.class-person-row:hover td{
+  background:#f5f9fb;
+}

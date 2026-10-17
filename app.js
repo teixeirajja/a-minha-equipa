@@ -22,7 +22,7 @@ let scheduleBlockSorts=[{key:'dia',dir:1},{key:'inicio',dir:1}];
 let currentScheduleViewerBlocks=[];
 
 let classSorts=[{key:'nome',dir:1}];
-let classFilters={numero_corpo:'',nome:'',posto:'',ano:'',ramo:'',nim:'',origem:'',funcao:''};
+let classFilters={numero_corpo:'',nome:'',posto:'',ano:'',ramo:'',nim:''};
 let availSorts=[{key:'nome',dir:1}];
 let availColumnFilters={
   numero_corpo:'',
@@ -246,7 +246,7 @@ function renderClassPeople(){
 
   let rows=tmPeople().filter(p=>{
     const origin=p.integra_equipa===false?'externo':'equipa';
-    if(q && ![p.numero_corpo,p.nome,p.posto,p.nim,p.ramo,p.funcao,p.ano]
+    if(q && ![p.numero_corpo,p.nome,p.posto,p.nim,p.ramo,p.ano]
       .some(v=>String(v||'').toLowerCase().includes(q))) return false;
     if(classFilters.numero_corpo && !String(p.numero_corpo||'').toLowerCase().includes(classFilters.numero_corpo))return false;
     if(classFilters.nome && !String(p.nome||'').toLowerCase().includes(classFilters.nome))return false;
@@ -254,19 +254,14 @@ function renderClassPeople(){
     if(classFilters.ano && String(p.ano||'')!==classFilters.ano)return false;
     if(classFilters.ramo && String(p.ramo||'').toLowerCase()!==classFilters.ramo)return false;
     if(classFilters.nim && !String(p.nim||'').toLowerCase().includes(classFilters.nim))return false;
-    if(classFilters.origem && origin!==classFilters.origem)return false;
-    if(classFilters.funcao && !String(p.funcao||'').toLowerCase().includes(classFilters.funcao))return false;
     return true;
   });
 
   rows=[...rows].sort((a,b)=>{
     for(const sort of classSorts){
       let av,bv,cmp=0;
-      if(sort.key==='origem'){
-        av=classOrigin(a);bv=classOrigin(b);
-      }else{
-        av=a[sort.key]??'';bv=b[sort.key]??'';
-      }
+      av=a[sort.key]??'';
+      bv=b[sort.key]??'';
       if(['ano','numero_corpo','nim'].includes(sort.key)){
         const an=Number(av),bn=Number(bv);
         if(!Number.isNaN(an)&&!Number.isNaN(bn))cmp=an-bn;
@@ -278,16 +273,18 @@ function renderClassPeople(){
   });
 
   $('#classPeopleBody').innerHTML=rows.map(p=>`
-    <tr>
+    <tr class="class-person-row" data-profile="${p.id}" title="Abrir ficha individual">
       <td>${esc(p.numero_corpo||'—')}</td>
       <td><b>${esc(p.nome)}</b></td>
       <td>${esc(p.posto||'')}</td>
       <td>${p.ano||'—'}</td>
       <td>${esc(p.ramo||'—')}</td>
       <td>${esc(p.nim||'—')}</td>
-      <td><span class="${p.integra_equipa===false?'person-origin-external':'person-origin-team'}">${classOrigin(p)}</span></td>
-      <td>${esc(p.funcao||'—')}</td>
-    </tr>`).join('') || '<tr><td colspan="8" class="muted">Sem resultados.</td></tr>';
+    </tr>`).join('') || '<tr><td colspan="6" class="muted">Sem resultados.</td></tr>';
+
+  $$('.class-person-row').forEach(row=>{
+    row.onclick=()=>openProfile(row.dataset.profile,true);
+  });
 
   multiSortIndicator($$('.class-sort-head'),classSorts,'tsort');
 }
@@ -542,7 +539,7 @@ function renderHistory(){
   multiSortIndicator($$('.history-sort-head'),historySorts,'hsort');
 }
 
-async function openProfile(personId){
+async function openProfile(personId,turmaMode=false){
   const p=S.people.find(x=>x.id===personId);
   if(!p)return;
 
@@ -593,8 +590,10 @@ async function openProfile(personId){
       <div class="profile-section">
         <h4>Dados pessoais</h4>
         <div class="profile-list">
+          ${turmaMode?'':`
           <div class="profile-list-item"><span>Origem</span><b>${p.integra_equipa===false?'Pessoa externa':'Equipa'}</b></div>
           <div class="profile-list-item"><span>Função</span><b>${esc(p.funcao||'—')}</b></div>
+          `}
           <div class="profile-list-item"><span>NIM</span><b>${esc(p.nim||'—')}</b></div>
           <div class="profile-list-item"><span>Localidade</span><b>${esc(p.localidade||'Por preencher')}</b></div>
           <div class="profile-list-item"><span>Sexo</span><b>${esc(sexLabel)}</b></div>

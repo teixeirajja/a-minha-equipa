@@ -790,3 +790,18 @@ A turma passa a incluir exclusivamente pessoas que cumpram simultaneamente:
 Inclui tanto pessoas da equipa como pessoas externas.
 
 Não requer SQL novo.
+
+
+## V6.2 — Fichas individuais na Turma
+
+Na página `A Minha Turma`:
+
+- cada linha da tabela passa a ser clicável;
+- ao clicar abre a mesma ficha individual usada em `A Minha Equipa`;
+- na versão aberta a partir da Turma não são mostrados os campos `Origem` e `Função`;
+- as colunas `Origem` e `Função` foram removidas da tabela da Turma;
+- os respetivos filtros também foram removidos.
+
+A Turma continua limitada a `TM · 6.º ano`.
+
+Não requer SQL novo.

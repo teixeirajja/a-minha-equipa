@@ -905,3 +905,21 @@ A Agenda mostra:
 A Agenda reutiliza a tabela `avaliacoes_turma` criada na V6.6.
 
 Não requer SQL adicional além da migração V6.6 já existente.
+
+
+## V6.8 — Agenda com criação direta e associação de várias pessoas
+
+Na Agenda da Turma:
+
+- cada avaliação mostra agora explicitamente as pessoas a quem diz respeito;
+- deixa de aparecer apenas `2 pessoas`, `3 pessoas`, etc.;
+- foi adicionado o botão `+ Avaliação` no topo;
+- cada dia do calendário tem também um pequeno botão `+` para criar uma avaliação já com esse dia preenchido;
+- ao criar uma avaliação é possível associar **uma ou várias pessoas**;
+- a lista permite pesquisar, selecionar todas as pessoas visíveis ou limpar a seleção;
+- é possível escolher a cadeira, tipo, data e observação;
+- se uma das pessoas já tiver exatamente essa avaliação, o sistema evita criar um duplicado para essa pessoa.
+
+A estrutura da base de dados continua a ser a mesma da V6.6: uma avaliação comum a várias pessoas é guardada como um registo por pessoa e agrupada automaticamente no calendário.
+
+Não requer SQL novo.

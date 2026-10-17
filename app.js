@@ -287,6 +287,196 @@ function agendaShortName(name){
   return `${parts[0]} ${parts[parts.length-1]}`;
 }
 
+
+function classSubjectOptions(){
+  const subjects=new Set();
+
+  tmPeople().forEach(p=>{
+    subjectsForPerson(p.id).forEach(s=>subjects.add(s));
+  });
+
+  return [...subjects].sort((a,b)=>
+    a.localeCompare(b,'pt',{sensitivity:'base'})
+  );
+}
+
+function openAgendaEvaluationEditor(defaultDate=''){
+  const people=[...tmPeople()].sort((a,b)=>{
+    const an=Number(a.numero_corpo),bn=Number(b.numero_corpo);
+    if(!Number.isNaN(an)&&!Number.isNaN(bn))return an-bn;
+    return String(a.nome||'').localeCompare(String(b.nome||''),'pt');
+  });
+
+  const subjects=classSubjectOptions();
+  const subjectOptions=subjects
+    .map(s=>`<option value="${esc(s)}"></option>`)
+    .join('');
+
+  modal(
+    'Nova avaliação da turma',
+    `<div class="agenda-create-form">
+      <div class="grid2">
+        <label class="full">Cadeira
+          <input
+            name="cadeira"
+            list="agendaEvaluationSubjects"
+            required
+            placeholder="Escolhe ou escreve a cadeira">
+          <datalist id="agendaEvaluationSubjects">${subjectOptions}</datalist>
+        </label>
+
+        <label>Tipo
+          <select name="tipo">
+            <option value="Teste">Teste</option>
+            <option value="Exame">Exame</option>
+            <option value="Trabalho">Trabalho</option>
+            <option value="Apresentação">Apresentação</option>
+            <option value="Outro">Outro</option>
+          </select>
+        </label>
+
+        <label>Data
+          <input name="data" type="date" required value="${esc(defaultDate||today())}">
+        </label>
+
+        <label class="full">Observação
+          <input name="observacao" placeholder="Opcional">
+        </label>
+      </div>
+
+      <div class="agenda-person-picker">
+        <div class="agenda-person-picker-head">
+          <div>
+            <b>Associar pessoas</b>
+            <small>Seleciona uma ou mais pessoas da turma.</small>
+          </div>
+          <span id="agendaSelectedPeopleCount">0 selecionadas</span>
+        </div>
+
+        <div class="agenda-person-picker-tools">
+          <input id="agendaPersonSearch" type="search" placeholder="Pesquisar nº ou nome...">
+          <button id="agendaSelectVisible" type="button" class="secondary">Selecionar visíveis</button>
+          <button id="agendaClearPeople" type="button" class="secondary">Limpar</button>
+        </div>
+
+        <div id="agendaPersonList" class="agenda-person-list">
+          ${people.map(p=>`
+            <label class="agenda-person-option"
+                   data-search="${esc(`${p.numero_corpo||''} ${p.nome||''}`.toLowerCase())}">
+              <input type="checkbox" name="pessoa_id" value="${p.id}">
+              <span>
+                <b>${esc(p.numero_corpo||'—')} · ${esc(p.nome)}</b>
+                <small>${esc(p.ramo||'—')} · TM · 6.º ano</small>
+              </span>
+            </label>
+          `).join('')}
+        </div>
+      </div>
+    </div>`,
+    async f=>{
+      const personIds=f.getAll('pessoa_id').map(String);
+
+      if(!personIds.length){
+        return toast('Seleciona pelo menos uma pessoa.');
+      }
+
+      const cadeira=String(f.get('cadeira')||'').trim();
+      const tipo=String(f.get('tipo')||'Teste');
+      const data=String(f.get('data')||'');
+      const observacao=String(f.get('observacao')||'').trim()||null;
+
+      if(!cadeira || !data){
+        return toast('Preenche a cadeira e a data.');
+      }
+
+      // Evita duplicar a mesma avaliação para a mesma pessoa.
+      const existing=new Set(
+        S.evaluations
+          .filter(ev=>
+            String(ev.data||'')===data &&
+            String(ev.cadeira||'').trim().toLowerCase()===cadeira.toLowerCase() &&
+            String(ev.tipo||'').trim().toLowerCase()===tipo.toLowerCase()
+          )
+          .map(ev=>String(ev.pessoa_id))
+      );
+
+      const newIds=personIds.filter(id=>!existing.has(id));
+
+      if(!newIds.length){
+        return toast('Essa avaliação já está associada às pessoas selecionadas.');
+      }
+
+      const rows=newIds.map(personId=>({
+        pessoa_id:personId,
+        cadeira,
+        tipo,
+        data,
+        observacao
+      }));
+
+      const {error}=await supabase
+        .from('avaliacoes_turma')
+        .insert(rows);
+
+      if(error)return toast(error.message);
+
+      closeModal();
+      await refreshEvaluations();
+      renderClassAgenda();
+
+      const skipped=personIds.length-newIds.length;
+      toast(
+        skipped
+          ? `Avaliação adicionada a ${newIds.length} pessoa(s); ${skipped} já tinha(m) esse registo.`
+          : `Avaliação adicionada a ${newIds.length} pessoa(s).`
+      );
+    }
+  );
+
+  const search=$('#agendaPersonSearch');
+  const options=()=>$$('.agenda-person-option');
+
+  const updateCount=()=>{
+    const n=$$('.agenda-person-option input:checked').length;
+    $('#agendaSelectedPeopleCount').textContent=
+      `${n} selecionada${n===1?'':'s'}`;
+  };
+
+  const filterPeople=()=>{
+    const q=String(search.value||'').trim().toLowerCase();
+    options().forEach(label=>{
+      label.classList.toggle(
+        'hidden',
+        Boolean(q) && !String(label.dataset.search||'').includes(q)
+      );
+    });
+  };
+
+  search.oninput=filterPeople;
+
+  options().forEach(label=>{
+    label.querySelector('input').onchange=updateCount;
+  });
+
+  $('#agendaSelectVisible').onclick=()=>{
+    options()
+      .filter(label=>!label.classList.contains('hidden'))
+      .forEach(label=>{
+        label.querySelector('input').checked=true;
+      });
+    updateCount();
+  };
+
+  $('#agendaClearPeople').onclick=()=>{
+    options().forEach(label=>{
+      label.querySelector('input').checked=false;
+    });
+    updateCount();
+  };
+
+  updateCount();
+}
+
 function renderClassAgenda(){
   const grid=$('#classCalendarGrid');
   const title=$('#agendaMonthTitle');
@@ -352,18 +542,25 @@ function renderClassAgenda(){
       const people=ev.people
         .sort((a,b)=>String(a.nome||'').localeCompare(String(b.nome||''),'pt'));
 
-      const who=people.length===1
-        ? agendaShortName(people[0].nome)
-        : `${people.length} pessoas`;
-
       const tooltip=people.map(p=>`${p.numero_corpo||'—'} · ${p.nome}`).join(' | ');
       const obs=ev.observacao?` · ${ev.observacao}`:'';
+
+      const peopleHtml=people.map(p=>`
+        <span class="agenda-evaluation-person">
+          ${esc(p.numero_corpo||'—')} · ${esc(agendaShortName(p.nome))}
+        </span>
+      `).join('');
 
       return `
         <div class="agenda-evaluation ${cls}"
              title="${esc(`${ev.tipo} · ${ev.cadeira}${obs} · ${tooltip}`)}">
-          <b>${esc(ev.cadeira)}</b>
-          <span>${esc(ev.tipo)} · ${esc(who)}</span>
+          <div class="agenda-evaluation-top">
+            <b>${esc(ev.cadeira)}</b>
+            <span>${esc(ev.tipo)}</span>
+          </div>
+          <div class="agenda-evaluation-people">
+            ${peopleHtml}
+          </div>
         </div>`;
     }).join('');
 
@@ -371,7 +568,14 @@ function renderClassAgenda(){
       <div class="class-calendar-day ${isCurrent?'':'outside'} ${isToday?'today':''} ${isWeekend?'weekend':''}">
         <div class="class-calendar-day-head">
           <span>${d.getDate()}</span>
-          ${isToday?'<em>Hoje</em>':''}
+          <div class="class-calendar-day-actions">
+            ${isToday?'<em>Hoje</em>':''}
+            <button type="button"
+                    class="agenda-day-add"
+                    data-date="${iso}"
+                    title="Adicionar avaliação neste dia"
+                    aria-label="Adicionar avaliação neste dia">+</button>
+          </div>
         </div>
         <div class="class-calendar-events">
           ${cards}
@@ -380,6 +584,15 @@ function renderClassAgenda(){
   }
 
   grid.innerHTML=html;
+
+  $$('.agenda-day-add').forEach(btn=>{
+    btn.onclick=e=>{
+      e.stopPropagation();
+      openAgendaEvaluationEditor(btn.dataset.date);
+    };
+  });
+
+  $('#agendaAddEvaluation').onclick=()=>openAgendaEvaluationEditor();
 
   $('#agendaPrevMonth').onclick=()=>{
     classAgendaMonth=new Date(year,month-1,1);

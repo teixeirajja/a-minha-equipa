@@ -1526,3 +1526,173 @@ body{
     flex-direction:column;
   }
 }
+
+
+/* V6.8 — Agenda: pessoas visíveis + criação multi-pessoa */
+.class-calendar-day-actions{
+  display:flex;
+  align-items:center;
+  gap:5px;
+}
+
+.agenda-day-add{
+  width:24px;
+  height:24px;
+  border:0;
+  border-radius:7px;
+  background:transparent;
+  color:#58707f;
+  font-size:18px;
+  line-height:1;
+  font-weight:800;
+  display:grid;
+  place-items:center;
+  opacity:.18;
+  transition:opacity .14s ease,background .14s ease;
+}
+
+.class-calendar-day:hover .agenda-day-add,
+.agenda-day-add:focus{
+  opacity:1;
+}
+
+.agenda-day-add:hover{
+  background:#e8f1f6;
+}
+
+.agenda-evaluation{
+  overflow:hidden;
+}
+
+.agenda-evaluation-top{
+  display:flex;
+  align-items:flex-start;
+  justify-content:space-between;
+  gap:5px;
+}
+
+.agenda-evaluation-top > b{
+  min-width:0;
+  overflow:hidden;
+  text-overflow:ellipsis;
+  white-space:nowrap;
+}
+
+.agenda-evaluation-top > span{
+  flex:0 0 auto;
+  font-size:9px;
+  font-weight:800;
+  opacity:.72;
+}
+
+.agenda-evaluation-people{
+  display:flex;
+  flex-wrap:wrap;
+  gap:3px;
+  margin-top:5px;
+}
+
+.agenda-evaluation-person{
+  max-width:100%;
+  border-radius:999px;
+  background:rgba(255,255,255,.65);
+  padding:2px 5px;
+  font-size:9px;
+  font-weight:700;
+  overflow:hidden;
+  text-overflow:ellipsis;
+  white-space:nowrap;
+}
+
+/* Editor de avaliação diretamente a partir da Agenda */
+.agenda-create-form{
+  display:grid;
+  gap:16px;
+}
+
+.agenda-person-picker{
+  border:1px solid var(--line);
+  border-radius:12px;
+  overflow:hidden;
+}
+
+.agenda-person-picker-head{
+  display:flex;
+  align-items:center;
+  justify-content:space-between;
+  gap:12px;
+  padding:12px 14px;
+  background:#f7f9fa;
+  border-bottom:1px solid var(--line);
+}
+
+.agenda-person-picker-head > div{
+  display:grid;
+  gap:2px;
+}
+
+.agenda-person-picker-head small{
+  color:var(--muted);
+}
+
+#agendaSelectedPeopleCount{
+  color:#3f78a6;
+  font-weight:800;
+  white-space:nowrap;
+}
+
+.agenda-person-picker-tools{
+  display:grid;
+  grid-template-columns:minmax(0,1fr) auto auto;
+  gap:8px;
+  padding:10px;
+  border-bottom:1px solid var(--line);
+}
+
+.agenda-person-list{
+  max-height:300px;
+  overflow:auto;
+  display:grid;
+  padding:7px;
+}
+
+.agenda-person-option{
+  display:flex;
+  grid-template-columns:none;
+  align-items:center;
+  gap:10px;
+  padding:9px 10px;
+  margin:0;
+  border-radius:8px;
+  cursor:pointer;
+}
+
+.agenda-person-option:hover{
+  background:#f2f6f8;
+}
+
+.agenda-person-option input{
+  width:auto;
+  margin:0;
+  flex:0 0 auto;
+}
+
+.agenda-person-option > span{
+  display:grid;
+  gap:2px;
+}
+
+.agenda-person-option small{
+  color:var(--muted);
+  font-weight:400;
+}
+
+@media(max-width:700px){
+  .agenda-person-picker-tools{
+    grid-template-columns:1fr 1fr;
+  }
+
+  .agenda-person-picker-tools input{
+    grid-column:1 / -1;
+  }
+}

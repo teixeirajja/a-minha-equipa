@@ -274,7 +274,9 @@
             <label>Tipo
               <select id="swType">
                 <option value="TEORICA">Teórica</option>
-                <option value="PRATICA">Prática</option>
+                <option value="TEORICO_PRATICA">Teórico-prática</option>
+                <option value="PROBLEMAS">Problemas</option>
+                <option value="LABORATORIO">Laboratório</option>
                 <option value="OUTRA">Outra</option>
               </select>
             </label>
@@ -284,10 +286,11 @@
           <details class="bulk-import">
             <summary>Importar vários blocos de uma vez</summary>
             <p class="muted">
-              Podes colar linhas vindas do Excel. Formato:
-              Dia | Início | Fim | Disciplina | Tipo.
+              Cola linhas com: <b>Dia Início Fim Disciplina Tipo</b>.
+              Aceita espaços, TAB do Excel ou ponto e vírgula.
+              Tipos: T, TP, P ou L.
             </p>
-            <textarea id="swBulk" placeholder="Segunda&#9;13:30&#9;14:30&#9;EG&#9;PRATICA&#10;Terça&#9;11:30&#9;13:00&#9;VC&#9;TEORICA"></textarea>
+            <textarea id="swBulk" placeholder="Terça 13:00 14:30 EG T&#10;Quarta 15:30 17:00 OGC TP&#10;Sexta 10:30 12:00 VC L"></textarea>
             <button id="swBulkAdd" type="button" class="secondary">Adicionar linhas</button>
           </details>
 

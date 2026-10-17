@@ -785,12 +785,19 @@ function parseDayValue(v){
 }
 
 function normalizeLessonType(v){
-  const s=String(v||'').trim().toUpperCase();
-  if(['P','PRATICA','PRÁTICA','TP','PL'].includes(s))return 'PRATICA';
-  if(['T','TEORICA','TEÓRICA'].includes(s))return 'TEORICA';
+  const s=String(v||'')
+    .trim()
+    .toUpperCase()
+    .normalize('NFD')
+    .replace(/[\u0300-\u036f]/g,'')
+    .replace(/[-\s]+/g,'_');
+
+  if(['T','TEORICA'].includes(s)) return 'TEORICA';
+  if(['TP','T_P','TEORICO_PRATICA','TEORICOPRATICA'].includes(s)) return 'TEORICO_PRATICA';
+  if(['P','PB','PROBLEMA','PROBLEMAS'].includes(s)) return 'PROBLEMAS';
+  if(['L','LAB','LABORATORIO','LABORATORIOS'].includes(s)) return 'LABORATORIO';
   return 'OUTRA';
 }
-
 function openScheduleWizard(model=null){
   SW.model=model;
   SW.blocks=model
@@ -915,7 +922,15 @@ function renderWeekGrid(){
 
     const rowStart=Math.floor((s-startMin)/slot)+2;
     const span=Math.max(1,Math.ceil((e-s)/slot));
-    const cls=b.tipo_aula==='PRATICA'?'pratica':b.tipo_aula==='OUTRA'?'outra':'';
+    const cls=b.tipo_aula==='LABORATORIO'
+      ? 'laboratorio'
+      : b.tipo_aula==='PROBLEMAS'
+        ? 'problemas'
+        : b.tipo_aula==='TEORICO_PRATICA'
+          ? 'teorico-pratica'
+          : b.tipo_aula==='OUTRA'
+            ? 'outra'
+            : '';
 
     html+=`<div class="week-block ${cls}"
       style="grid-column:${Number(b.dia_semana)+1};grid-row:${rowStart}/span ${span}">
@@ -958,6 +973,32 @@ function renderSchedulePeople(){
   });
 }
 
+function splitBulkScheduleLine(line){
+  const raw=String(line||'').trim();
+  if(!raw) return [];
+
+  // 1) Excel / TSV
+  if(raw.includes('\t')){
+    return raw.split('\t').map(x=>x.trim()).filter(Boolean);
+  }
+
+  // 2) ponto e vírgula
+  if(raw.includes(';')){
+    return raw.split(';').map(x=>x.trim()).filter(Boolean);
+  }
+
+  // 3) vírgula
+  if(raw.includes(',')){
+    return raw.split(',').map(x=>x.trim()).filter(Boolean);
+  }
+
+  // 4) texto escrito/colado com espaços:
+  //    "Terça 13:00 14:30 EG TEORICA"
+  //    O primeiro token é o dia, os dois seguintes são horas,
+  //    o último é o tipo e tudo no meio é disciplina.
+  return raw.split(/\s+/).filter(Boolean);
+}
+
 function addBulkScheduleBlocks(){
   const text=$('#swBulk').value.trim();
   if(!text)return toast('Cola primeiro as linhas.');
@@ -967,11 +1008,9 @@ function addBulkScheduleBlocks(){
   let invalid=0;
 
   for(const line of lines){
-    const cols=line.includes('\t')
-      ? line.split('\t')
-      : line.split(';');
+    const cols=splitBulkScheduleLine(line);
 
-    if(cols.length<4){
+    if(cols.length<5){
       invalid++;
       continue;
     }
@@ -979,10 +1018,19 @@ function addBulkScheduleBlocks(){
     const dia=parseDayValue(cols[0]);
     const inicio=normalizeTime(cols[1]);
     const fim=normalizeTime(cols[2]);
-    const disciplina=String(cols[3]||'').trim();
-    const tipo=normalizeLessonType(cols[4]||'OUTRA');
 
-    if(!dia||!inicio||!fim||minutesFromTime(fim)<=minutesFromTime(inicio)){
+    // último campo = tipo; tudo entre as horas e o tipo = disciplina
+    const tipoRaw=cols[cols.length-1];
+    const disciplina=cols.slice(3,-1).join(' ').trim();
+    const tipo=normalizeLessonType(tipoRaw);
+
+    if(
+      !dia ||
+      !inicio ||
+      !fim ||
+      !disciplina ||
+      minutesFromTime(fim)<=minutesFromTime(inicio)
+    ){
       invalid++;
       continue;
     }
@@ -994,11 +1042,20 @@ function addBulkScheduleBlocks(){
       disciplina,
       tipo_aula:tipo
     });
+
     added++;
   }
 
   renderScheduleBlocks();
-  $('#swBulk').value='';
+
+  if(added){
+    $('#swBulk').value='';
+  }
+
+  if(!added){
+    toast('Nenhuma linha válida. Exemplo: Terça 13:00 14:30 EG T');
+    return;
+  }
 
   toast(
     invalid
@@ -1006,6 +1063,7 @@ function addBulkScheduleBlocks(){
       : `${added} bloco(s) adicionados`
   );
 }
+
 
 async function saveScheduleWizard(){
   const nome=$('#swName').value.trim();

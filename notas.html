@@ -1,0 +1,87 @@
+<!doctype html>
+<html lang="pt-PT">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width,initial-scale=1">
+  <meta name="theme-color" content="#152136">
+  <title>QGApp — Notas e Listas</title>
+  <link rel="icon" type="image/png" href="favicon.png">
+  <link rel="stylesheet" href="styles.css?v=6.13">
+  <link rel="stylesheet" href="notas.css?v=6.13">
+</head>
+<body>
+<div id="toast" class="toast hidden"></div>
+<section class="notes-shell">
+  <div class="notes-topbar">
+    <div class="notes-brand">
+      <img src="app-logo.png" alt="QGApp">
+      <div><h1>Notas e Listas</h1><p>QGApp · apontamentos pessoais</p></div>
+    </div>
+    <div class="notes-top-actions">
+      <a class="notes-back" href="index.html">← Módulos</a>
+      <span id="notesEmail"></span>
+      <button id="notesLogout" type="button">Terminar sessão</button>
+    </div>
+  </div>
+
+  <main class="notes-main">
+    <div class="notes-hero">
+      <div>
+        <h2>Os meus apontamentos</h2>
+        <p>Notas rápidas e listas sincronizadas em todos os dispositivos.</p>
+        <div id="notesStatus" class="notes-status">A carregar…</div>
+      </div>
+      <div class="notes-create-actions">
+        <button id="newNoteBtn" class="notes-create-note" type="button">+ Nova nota</button>
+        <button id="newListBtn" class="notes-create-list" type="button">+ Nova lista</button>
+      </div>
+    </div>
+
+    <div id="notesError" class="notes-error hidden"></div>
+
+    <div class="notes-toolbar">
+      <div class="notes-search"><input id="notesSearch" type="search" placeholder="Pesquisar notas, listas ou itens…" autocomplete="off"></div>
+      <div class="notes-filters" id="notesFilters">
+        <button type="button" class="notes-filter active" data-filter="ativas">Ativas</button>
+        <button type="button" class="notes-filter" data-filter="todas">Todas</button>
+        <button type="button" class="notes-filter" data-filter="nota">Notas</button>
+        <button type="button" class="notes-filter" data-filter="lista">Listas</button>
+        <button type="button" class="notes-filter" data-filter="fixadas">Fixadas</button>
+        <button type="button" class="notes-filter" data-filter="arquivadas">Arquivo</button>
+      </div>
+    </div>
+
+    <div id="notesSummary" class="notes-summary"></div>
+    <div id="notesGrid" class="notes-grid"></div>
+  </main>
+</section>
+
+<dialog id="noteEditor" class="notes-dialog">
+  <div class="notes-dialog-head">
+    <h3 id="noteEditorTitle">Nova nota</h3>
+    <button id="noteEditorClose" class="notes-dialog-close" type="button" aria-label="Fechar">×</button>
+  </div>
+  <div class="notes-dialog-body">
+    <label>Título
+      <input id="noteTitle" maxlength="160" placeholder="Ex.: Material para amanhã">
+    </label>
+    <div id="noteTextBox">
+      <label>Apontamento
+        <textarea id="noteContent" maxlength="20000" placeholder="Escreve aqui…"></textarea>
+      </label>
+    </div>
+    <div id="noteListBox" class="hidden">
+      <label>Itens</label>
+      <div id="checkEditor" class="check-editor"></div>
+      <button id="addCheckItem" class="check-editor-add" type="button">+ Adicionar item</button>
+    </div>
+  </div>
+  <div class="notes-dialog-actions">
+    <button id="noteEditorCancel" class="notes-cancel" type="button">Cancelar</button>
+    <button id="noteEditorSave" class="notes-save" type="button">Guardar</button>
+  </div>
+</dialog>
+
+<script type="module" src="notas.js?v=6.13"></script>
+</body>
+</html>
